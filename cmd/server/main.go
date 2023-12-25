@@ -106,18 +106,14 @@ func getMetricsHandler(storage Storage) http.HandlerFunc {
 func updateMetricsHandler(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// request checking
-		switch {
-		case req.Method != http.MethodPost:
+		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
-			return
-		case req.Header.Get("Content-Type") != "text/plain":
-			http.Error(res, "Content-Type must be text/plain", http.StatusUnsupportedMediaType)
 			return
 		}
 		// request path checking
 		urlParts := strings.Split(req.URL.Path, "/")
 		if len(urlParts) != 5 || urlParts[1] != "update" {
-			http.Error(res, "Invalid path", http.StatusBadRequest)
+			http.Error(res, "Invalid path", http.StatusNotFound)
 			return
 		}
 
