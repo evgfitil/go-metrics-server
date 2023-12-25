@@ -133,7 +133,6 @@ func updateMetricsHandler(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusBadRequest)
 			return
 		}
-		fmt.Fprintf(res, "Metric updated: %s: %s\n ", metricName, metricValue)
 	}
 }
 
