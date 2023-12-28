@@ -72,7 +72,7 @@ func getMetricsHandler(storage Storage) http.HandlerFunc {
 			return
 		}
 		metricName := urlParts[2]
-		metric, ok := storage.Get(metricName)
+		_, ok := storage.Get(metricName)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
