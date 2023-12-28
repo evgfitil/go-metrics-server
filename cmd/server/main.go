@@ -1,62 +1,40 @@
 package main
 
 import (
-	"fmt"
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
-type Metric interface {
-	GetName() string
-}
-
-type Counter struct {
-	Name  string
-	Value int64
-}
-
-func (c Counter) GetName() string {
-	return c.Name
-}
-
-type Gauge struct {
-	Name  string
-	Value float64
-}
-
-func (g Gauge) GetName() string {
-	return g.Name
-}
-
 type MemStorage struct {
-	metrics map[string]Metric
+	metrics map[string]metrics.Metric
 }
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		metrics: make(map[string]Metric),
+		metrics: make(map[string]metrics.Metric),
 	}
 }
 
 type Storage interface {
-	Update(metric Metric)
-	Get(name string) (Metric, bool)
+	Update(metric metrics.Metric)
+	Get(name string) (metrics.Metric, bool)
 }
 
-func (m *MemStorage) Update(metric Metric) {
+func (m *MemStorage) Update(metric metrics.Metric) {
 	switch v := metric.(type) {
-	case Counter:
-		if exists, ok := m.metrics[metric.GetName()].(Counter); ok {
+	case metrics.Counter:
+		if exists, ok := m.metrics[metric.GetName()].(metrics.Counter); ok {
 			v.Value += exists.Value
 		}
 		m.metrics[metric.GetName()] = v
-	case Gauge:
+	case metrics.Gauge:
 		m.metrics[metric.GetName()] = metric
 	}
 }
 
-func (m *MemStorage) Get(name string) (Metric, bool) {
+func (m *MemStorage) Get(name string) (metrics.Metric, bool) {
 	metric, ok := m.metrics[name]
 	return metric, ok
 }
@@ -65,7 +43,7 @@ func updateCounter(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := Counter{Name: metricName, Value: value}
+	metric := metrics.Counter{Name: metricName, Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -75,7 +53,7 @@ func updateGauge(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := Gauge{Name: metricName, Value: value}
+	metric := metrics.Gauge{Name: metricName, Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -99,7 +77,6 @@ func getMetricsHandler(storage Storage) http.HandlerFunc {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
 		}
-		fmt.Fprintf(res, "Metric: %s, Value: %v\n", metric.GetName(), metric)
 	}
 }
 
