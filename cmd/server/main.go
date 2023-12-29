@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	storage := storage.NewMemStorage()
+	s := storage.NewMemStorage()
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, handlers.UpdateMetricsHandler(storage))
-	mux.HandleFunc(`/get/`, handlers.GetMetricsHandler(storage))
+	mux.HandleFunc(`/update/`, handlers.UpdateMetricsHandler(s))
+	mux.HandleFunc(`/get/`, handlers.GetMetricsHandler(s))
 
 	err := http.ListenAndServe(`:8080`, mux)
 	if err != nil {
