@@ -1,9 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"log"
+	"math/rand"
+	"net/http"
 	"runtime"
+	"time"
 )
+
+const serverUrl = "http://localhost:8080"
 
 func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 	collectedMetrics := []metrics.Metric{
@@ -33,9 +40,49 @@ func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 		metrics.Gauge{Name: "StackInuse", Value: float64(m.StackInuse)},
 		metrics.Gauge{Name: "Sys", Value: float64(m.Sys)},
 		metrics.Gauge{Name: "TotalAlloc", Value: float64(m.TotalAlloc)},
+		metrics.Gauge{Name: "RandomValue", Value: rand.Float64()},
 	}
 
 	return collectedMetrics
 }
 
-func main() {}
+func sendMetrics(m []metrics.Metric) {
+	for _, metric := range m {
+		var metricType string
+		switch metric.(type) {
+		case metrics.Gauge:
+			metricType = "gauge"
+		case metrics.Counter:
+			metricType = "counter"
+		}
+		url := fmt.Sprintf("%s/update/%s/%s/%s", serverUrl, metricType, metric.GetName(), metric.GetValueAsString())
+		resp, err := http.Post(url, "text/plain", nil)
+		if err != nil {
+			log.Println("Error sending metric:", err)
+			continue
+		}
+		resp.Body.Close()
+	}
+}
+
+func main() {
+	var pollCount int64
+	pollInterval, reportInterval := 2*time.Second, 10*time.Second
+	pollTicker, reportTicker := time.NewTicker(pollInterval), time.NewTicker(reportInterval)
+	defer pollTicker.Stop()
+	defer reportTicker.Stop()
+	var collectedMetrics []metrics.Metric
+	for {
+		select {
+		case <-pollTicker.C:
+			pollCount++
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			collectedMetrics = collectMetrics(&m)
+			collectedMetrics = append(collectedMetrics, metrics.Counter{Name: "PollCount", Value: pollCount})
+		case <-reportTicker.C:
+			sendMetrics(collectedMetrics)
+			collectedMetrics = []metrics.Metric{}
+		}
+	}
+}
