@@ -77,6 +77,7 @@ func TestUpdateMetricsHandler(t *testing.T) {
 			h(w, request)
 			res := w.Result()
 			assert.Equal(t, tt.want.statusCode, res.StatusCode)
+			defer res.Body.Close()
 		})
 	}
 }
