@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const serverUrl = "http://localhost:8080"
+const serverURL = "http://localhost:8080"
 
 func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 	collectedMetrics := []metrics.Metric{
@@ -55,7 +55,7 @@ func sendMetrics(m []metrics.Metric) {
 		case metrics.Counter:
 			metricType = "counter"
 		}
-		url := fmt.Sprintf("%s/update/%s/%s/%s", serverUrl, metricType, metric.GetName(), metric.GetValueAsString())
+		url := fmt.Sprintf("%s/update/%s/%s/%s", serverURL, metricType, metric.GetName(), metric.GetValueAsString())
 		resp, err := http.Post(url, "text/plain", nil)
 		if err != nil {
 			log.Println("Error sending metric:", err)
