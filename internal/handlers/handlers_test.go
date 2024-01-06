@@ -11,7 +11,7 @@ import (
 
 func TestGetMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
-	mockMetric := metrics.Counter{"testCounter", 100}
+	mockMetric := metrics.Counter{Name: "testCounter", Value: 100}
 	mockStorage.Update(mockMetric)
 
 	type want struct {
