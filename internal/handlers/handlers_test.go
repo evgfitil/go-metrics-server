@@ -1,12 +1,74 @@
 package handlers
 
 import (
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestGetMetricsHandler(t *testing.T) {
+	mockStorage := storage.NewMemStorage()
+	mockMetric := metrics.Counter{"testCounter", 100}
+	mockStorage.Update(mockMetric)
+
+	type want struct {
+		statusCode int
+	}
+	tests := []struct {
+		name          string
+		requestMethod string
+		requestPath   string
+		want          want
+	}{
+		{
+			name:          "valid request",
+			requestMethod: http.MethodGet,
+			requestPath:   "/get/testCounter",
+			want: want{
+				statusCode: http.StatusOK,
+			},
+		},
+		{
+			name:          "wrong requestMethod",
+			requestMethod: http.MethodPost,
+			requestPath:   "/get/testCounter",
+			want: want{
+				statusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name:          "wrong requestPath",
+			requestMethod: http.MethodGet,
+			requestPath:   "/wrong",
+			want: want{
+				statusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name:          "get non existing metric",
+			requestMethod: http.MethodGet,
+			requestPath:   "/get/nonExistingMetric",
+			want: want{
+				statusCode: http.StatusNotFound,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
+			w := httptest.NewRecorder()
+			h := http.HandlerFunc(GetMetricsHandler(mockStorage))
+			h(w, request)
+			res := w.Result()
+			assert.Equal(t, tt.want.statusCode, res.StatusCode)
+			defer res.Body.Close()
+		})
+	}
+}
 
 func TestUpdateMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
