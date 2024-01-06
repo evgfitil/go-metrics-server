@@ -24,7 +24,7 @@ func (m *MemStorage) Update(metric metrics.Metric) {
 	}
 }
 
-func (m *MemStorage) Get(name string) (metrics.Metric, bool) {
-	metric, ok := m.metrics[name]
+func (m *MemStorage) Get(metricName string) (metrics.Metric, bool) {
+	metric, ok := m.metrics[metricName]
 	return metric, ok
 }

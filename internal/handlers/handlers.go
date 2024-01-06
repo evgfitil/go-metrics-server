@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/evgfitil/go-metrics-server.git/pkg/repositories"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 func UpdateCounter(storage repositories.Storage, metricName, metricValue string) error {
@@ -36,13 +36,13 @@ func GetMetricsHandler(storage repositories.Storage) http.HandlerFunc {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
 		}
-		// request path checking
-		urlParts := strings.Split(req.URL.Path, "/")
-		if len(urlParts) != 3 || urlParts[1] != "get" {
-			http.Error(res, "Invalid path", http.StatusBadRequest)
+		metricName := chi.URLParam(req, "name")
+		metricType := chi.URLParam(req, "type")
+
+		if metricType != "counter" && metricType != "gauge" {
+			http.Error(res, "Unsupported metric type", http.StatusNotFound)
 			return
 		}
-		metricName := urlParts[2]
 		metric, ok := storage.Get(metricName)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
@@ -59,15 +59,11 @@ func UpdateMetricsHandler(storage repositories.Storage) http.HandlerFunc {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
 		}
-		// request path checking
-		urlParts := strings.Split(req.URL.Path, "/")
-		if len(urlParts) != 5 || urlParts[1] != "update" {
-			http.Error(res, "Invalid path", http.StatusNotFound)
-			return
-		}
 
-		// update metrics
-		metricType, metricName, metricValue := urlParts[2], urlParts[3], urlParts[4]
+		metricType := chi.URLParam(req, "type")
+		metricName := chi.URLParam(req, "name")
+		metricValue := chi.URLParam(req, "value")
+
 		switch metricType {
 		case "counter":
 			if err := UpdateCounter(storage, metricName, metricValue); err != nil {

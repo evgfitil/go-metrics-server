@@ -3,16 +3,30 @@ package handlers
 import (
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
+func testMetricsRouter(s *storage.MemStorage) chi.Router {
+	r := chi.NewRouter()
+	r.Get("/value/{type}/{name}", GetMetricsHandler(s))
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/{type}/{name}/{value}", UpdateMetricsHandler(s))
+	})
+	return r
+}
+
 func TestGetMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
 	mockMetric := metrics.Counter{Name: "testCounter", Value: 100}
 	mockStorage.Update(mockMetric)
+
+	ts := httptest.NewServer(testMetricsRouter(mockStorage))
+	defer ts.Close()
 
 	type want struct {
 		statusCode int
@@ -26,7 +40,7 @@ func TestGetMetricsHandler(t *testing.T) {
 		{
 			name:          "valid request",
 			requestMethod: http.MethodGet,
-			requestPath:   "/get/testCounter",
+			requestPath:   "/value/counter/testCounter",
 			want: want{
 				statusCode: http.StatusOK,
 			},
@@ -34,9 +48,9 @@ func TestGetMetricsHandler(t *testing.T) {
 		{
 			name:          "wrong requestMethod",
 			requestMethod: http.MethodPost,
-			requestPath:   "/get/testCounter",
+			requestPath:   "/value/counter/testCounter",
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusMethodNotAllowed,
 			},
 		},
 		{
@@ -44,13 +58,13 @@ func TestGetMetricsHandler(t *testing.T) {
 			requestMethod: http.MethodGet,
 			requestPath:   "/wrong",
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusNotFound,
 			},
 		},
 		{
 			name:          "get non existing metric",
 			requestMethod: http.MethodGet,
-			requestPath:   "/get/nonExistingMetric",
+			requestPath:   "/value/counter/nonExistingMetric",
 			want: want{
 				statusCode: http.StatusNotFound,
 			},
@@ -59,19 +73,24 @@ func TestGetMetricsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(GetMetricsHandler(mockStorage))
-			h(w, request)
-			res := w.Result()
-			assert.Equal(t, tt.want.statusCode, res.StatusCode)
-			defer res.Body.Close()
+			req, err := http.NewRequest(tt.requestMethod, ts.URL+tt.requestPath, nil)
+			require.NoError(t, err)
+
+			resp, err := ts.Client().Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
 	}
 }
 
 func TestUpdateMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
+
+	ts := httptest.NewServer(testMetricsRouter(mockStorage))
+	defer ts.Close()
+
 	type want struct {
 		statusCode int
 	}
@@ -102,7 +121,7 @@ func TestUpdateMetricsHandler(t *testing.T) {
 			requestMethod: http.MethodGet,
 			requestPath:   "/update/gauge/testGauge/123.12",
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusMethodNotAllowed,
 			},
 		},
 		{
@@ -133,13 +152,14 @@ func TestUpdateMetricsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.requestMethod, tt.requestPath, nil)
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(UpdateMetricsHandler(mockStorage))
-			h(w, request)
-			res := w.Result()
-			assert.Equal(t, tt.want.statusCode, res.StatusCode)
-			defer res.Body.Close()
+			req, err := http.NewRequest(tt.requestMethod, ts.URL+tt.requestPath, nil)
+			require.NoError(t, err)
+
+			resp, err := ts.Client().Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
 	}
 }
