@@ -29,7 +29,7 @@ func UpdateGauge(storage repositories.Storage, metricName, metricValue string) e
 	return nil
 }
 
-func GetMetricsHandler(storage repositories.Storage) http.HandlerFunc {
+func GetMetrics(storage repositories.Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// request checking
 		if req.Method != http.MethodGet {
@@ -52,7 +52,7 @@ func GetMetricsHandler(storage repositories.Storage) http.HandlerFunc {
 	}
 }
 
-func UpdateMetricsHandler(storage repositories.Storage) http.HandlerFunc {
+func UpdateMetrics(storage repositories.Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// request checking
 		if req.Method != http.MethodPost {
