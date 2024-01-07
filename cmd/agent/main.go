@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"github.com/go-resty/resty/v2"
 	"log"
 	"math/rand"
-	"net/http"
 	"runtime"
 	"time"
 )
@@ -55,13 +55,21 @@ func sendMetrics(m []metrics.Metric) {
 		case metrics.Counter:
 			metricType = "counter"
 		}
-		url := fmt.Sprintf("%s/update/%s/%s/%s", serverURL, metricType, metric.GetName(), metric.GetValueAsString())
-		resp, err := http.Post(url, "text/plain", nil)
+		urlFormat := "%s/update/{metricType}/{metricName}/{metricValue}"
+		url := fmt.Sprintf(urlFormat, serverURL)
+
+		client := resty.New()
+		_, err := client.R().
+			SetPathParams(map[string]string{
+				"metricType":  metricType,
+				"metricName":  metric.GetName(),
+				"metricValue": metric.GetValueAsString(),
+			}).Post(url)
+
 		if err != nil {
-			log.Println("Error sending metric:", err)
+			log.Println("error sending metric:", err)
 			continue
 		}
-		resp.Body.Close()
 	}
 }
 
