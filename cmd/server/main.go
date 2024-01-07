@@ -9,6 +9,7 @@ import (
 
 func MetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
+	r.Get("/", handlers.GetAllMetrics(s))
 	r.Get("/value/{type}/{name}", handlers.GetMetrics(s))
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/{type}/{name}/{value}", handlers.UpdateMetrics(s))

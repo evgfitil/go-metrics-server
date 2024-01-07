@@ -80,3 +80,15 @@ func UpdateMetrics(storage repositories.Storage) http.HandlerFunc {
 		}
 	}
 }
+
+func GetAllMetrics(storage repositories.Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(res, "<html><body>\n")
+		metrics := storage.GetAllMetrics()
+		for _, metric := range metrics {
+			fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.GetName(), metric.GetValueAsString())
+		}
+		fmt.Fprintf(res, "</body></html>\n")
+	}
+}

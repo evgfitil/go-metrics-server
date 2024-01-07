@@ -28,3 +28,7 @@ func (m *MemStorage) Get(metricName string) (metrics.Metric, bool) {
 	metric, ok := m.metrics[metricName]
 	return metric, ok
 }
+
+func (m *MemStorage) GetAllMetrics() map[string]metrics.Metric {
+	return m.metrics
+}
