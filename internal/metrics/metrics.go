@@ -30,5 +30,5 @@ func (g Gauge) GetName() string {
 }
 
 func (g Gauge) GetValueAsString() string {
-	return fmt.Sprintf("%f", g.Value)
+	return fmt.Sprintf("%g", g.Value)
 }

@@ -48,7 +48,7 @@ func GetMetricsHandler(storage repositories.Storage) http.HandlerFunc {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
 		}
-		fmt.Fprintln(res, metric)
+		fmt.Fprintln(res, metric.GetValueAsString())
 	}
 }
 
