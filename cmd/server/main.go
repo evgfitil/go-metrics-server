@@ -1,9 +1,11 @@
 package main
 
 import (
+	"github.com/evgfitil/go-metrics-server.git/internal/flags"
 	"github.com/evgfitil/go-metrics-server.git/internal/handlers"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"log"
 	"net/http"
 )
 
@@ -19,5 +21,9 @@ func MetricsRouter(s *storage.MemStorage) chi.Router {
 
 func main() {
 	s := storage.NewMemStorage()
-	http.ListenAndServe(":8080", MetricsRouter(s))
+	addr, err := flags.ParseFlags()
+	if err != nil {
+		log.Fatalf("invalid address: %v", err)
+	}
+	http.ListenAndServe(addr, MetricsRouter(s))
 }
