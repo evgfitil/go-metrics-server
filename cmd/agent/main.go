@@ -88,7 +88,7 @@ func main() {
 		log.Fatalf("error getting arguments: %v", err)
 	}
 	serverAddr := args["addr"]
-	serverUrl := "http://" + serverAddr
+	serverURL := "http://" + serverAddr
 	pollIntervalStr, reportIntervalStr := args["pollInterval"], args["reportInterval"]
 
 	pollTicker, err := getIntervalSettings(pollIntervalStr)
@@ -114,7 +114,7 @@ func main() {
 			collectedMetrics = collectMetrics(&m)
 			collectedMetrics = append(collectedMetrics, metrics.Counter{Name: "PollCount", Value: pollCount})
 		case <-reportTicker.C:
-			sendMetrics(collectedMetrics, serverUrl)
+			sendMetrics(collectedMetrics, serverURL)
 			collectedMetrics = []metrics.Metric{}
 		}
 	}

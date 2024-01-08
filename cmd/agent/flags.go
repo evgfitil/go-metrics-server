@@ -52,7 +52,7 @@ func validateAddress(addr string) error {
 		return fmt.Errorf("ivalid port: %v", err)
 	}
 	if port < 1 || port > 65535 {
-		fmt.Errorf("port must be between 1 and 65535")
+		return fmt.Errorf("port must be between 1 and 65535")
 	}
 	if net.ParseIP(host) == nil {
 		if _, err := net.LookupHost(host); err != nil {
