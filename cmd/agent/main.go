@@ -45,7 +45,7 @@ func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 	return collectedMetrics
 }
 
-func sendMetrics(m []metrics.Metric, serverUrl string) {
+func sendMetrics(m []metrics.Metric, serverURL string) {
 	for _, metric := range m {
 		var metricType string
 		switch metric.(type) {
@@ -55,7 +55,7 @@ func sendMetrics(m []metrics.Metric, serverUrl string) {
 			metricType = "counter"
 		}
 		urlFormat := "%s/update/{metricType}/{metricName}/{metricValue}"
-		url := fmt.Sprintf(urlFormat, serverUrl)
+		url := fmt.Sprintf(urlFormat, serverURL)
 
 		client := resty.New()
 		_, err := client.R().
