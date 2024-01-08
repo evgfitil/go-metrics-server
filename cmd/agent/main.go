@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/evgfitil/go-metrics-server.git/internal/flags"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/go-resty/resty/v2"
 	"log"
@@ -9,8 +10,6 @@ import (
 	"runtime"
 	"time"
 )
-
-const serverURL = "http://localhost:8080"
 
 func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 	collectedMetrics := []metrics.Metric{
@@ -46,7 +45,7 @@ func collectMetrics(m *runtime.MemStats) []metrics.Metric {
 	return collectedMetrics
 }
 
-func sendMetrics(m []metrics.Metric) {
+func sendMetrics(m []metrics.Metric, serverUrl string) {
 	for _, metric := range m {
 		var metricType string
 		switch metric.(type) {
@@ -56,7 +55,7 @@ func sendMetrics(m []metrics.Metric) {
 			metricType = "counter"
 		}
 		urlFormat := "%s/update/{metricType}/{metricName}/{metricValue}"
-		url := fmt.Sprintf(urlFormat, serverURL)
+		url := fmt.Sprintf(urlFormat, serverUrl)
 
 		client := resty.New()
 		_, err := client.R().
@@ -79,6 +78,13 @@ func main() {
 	pollTicker, reportTicker := time.NewTicker(pollInterval), time.NewTicker(reportInterval)
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
+
+	serverAddr, err := flags.ParseFlags()
+	if err != nil {
+		log.Fatalf("invalid server address: %v", err)
+	}
+	serverUrl := "http://" + serverAddr
+
 	var collectedMetrics []metrics.Metric
 	for {
 		select {
@@ -89,7 +95,7 @@ func main() {
 			collectedMetrics = collectMetrics(&m)
 			collectedMetrics = append(collectedMetrics, metrics.Counter{Name: "PollCount", Value: pollCount})
 		case <-reportTicker.C:
-			sendMetrics(collectedMetrics)
+			sendMetrics(collectedMetrics, serverUrl)
 			collectedMetrics = []metrics.Metric{}
 		}
 	}
