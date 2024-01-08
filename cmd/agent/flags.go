@@ -4,20 +4,32 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
 
 func ParseFlags() (map[string]string, error) {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
-	var pollInterval = pflag.StringP("pollInterval", "p", "2", "pollInterval in seconds")
-	var reportInterval = pflag.StringP("reportInterval", "r", "10", "reportInterval in seconds")
+	var pollIntervalArg = pflag.StringP("pollInterval", "p", "2", "pollInterval in seconds")
+	var reportIntervalArg = pflag.StringP("reportInterval", "r", "10", "reportInterval in seconds")
+	var pollInterval, reportInterval string
 	pflag.Parse()
 
-	args := map[string]string{
-		"reportInterval": *reportInterval,
-		"pollInterval":   *pollInterval,
+	args := make(map[string]string)
+	if pollIntervalEnv := os.Getenv("POLL_INTERVAL"); pollIntervalEnv != "" {
+		pollInterval = pollIntervalEnv
+	} else {
+		pollInterval = *pollIntervalArg
 	}
+	args["pollInterval"] = pollInterval
+
+	if reportIntervalEnv := os.Getenv("REPORT_INTERVAL"); reportIntervalEnv != "" {
+		reportInterval = reportIntervalEnv
+	} else {
+		reportInterval = *reportIntervalArg
+	}
+	args["reportInterval"] = reportInterval
 
 	for arg, value := range args {
 		if err := validateArgs(value); err != nil {
