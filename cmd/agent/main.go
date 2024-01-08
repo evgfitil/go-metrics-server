@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/evgfitil/go-metrics-server.git/internal/flags"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/go-resty/resty/v2"
 	"log"
 	"math/rand"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -72,18 +72,37 @@ func sendMetrics(m []metrics.Metric, serverUrl string) {
 	}
 }
 
+func getIntervalSettings(interval string) (*time.Ticker, error) {
+	i, err := strconv.Atoi(interval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interval: %v", err)
+	}
+	res := time.NewTicker(time.Duration(i) * time.Second)
+	return res, nil
+}
+
 func main() {
 	var pollCount int64
-	pollInterval, reportInterval := 2*time.Second, 10*time.Second
-	pollTicker, reportTicker := time.NewTicker(pollInterval), time.NewTicker(reportInterval)
+	args, err := ParseFlags()
+	if err != nil {
+		log.Fatalf("error getting arguments: %v", err)
+	}
+	serverAddr := args["addr"]
+	serverUrl := "http://" + serverAddr
+	pollIntervalStr, reportIntervalStr := args["pollInterval"], args["reportInterval"]
+
+	pollTicker, err := getIntervalSettings(pollIntervalStr)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	reportTicker, err := getIntervalSettings(reportIntervalStr)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
-
-	serverAddr, err := flags.ParseFlags()
-	if err != nil {
-		log.Fatalf("invalid server address: %v", err)
-	}
-	serverUrl := "http://" + serverAddr
 
 	var collectedMetrics []metrics.Metric
 	for {

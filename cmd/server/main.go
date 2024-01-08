@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/evgfitil/go-metrics-server.git/internal/flags"
 	"github.com/evgfitil/go-metrics-server.git/internal/handlers"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -21,7 +20,7 @@ func MetricsRouter(s *storage.MemStorage) chi.Router {
 
 func main() {
 	s := storage.NewMemStorage()
-	addr, err := flags.ParseFlags()
+	addr, err := ParseFlags()
 	if err != nil {
 		log.Fatalf("invalid address: %v", err)
 	}
