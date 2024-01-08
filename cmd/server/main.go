@@ -22,7 +22,7 @@ func main() {
 	s := storage.NewMemStorage()
 	addr, err := ParseFlags()
 	if err != nil {
-		log.Fatalf("invalid address: %v", err)
+		log.Fatalf("invalid bind address: %v", err)
 	}
 	http.ListenAndServe(addr, MetricsRouter(s))
 }

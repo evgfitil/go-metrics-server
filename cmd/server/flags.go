@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -12,11 +13,18 @@ func ParseFlags() (string, error) {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
 	pflag.Parse()
 
-	err := validateAddress(*addr)
+	var bindAddress string
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		bindAddress = envRunAddr
+	} else {
+		bindAddress = *addr
+	}
+
+	err := validateAddress(bindAddress)
 	if err != nil {
 		return "", err
 	}
-	return *addr, nil
+	return bindAddress, nil
 }
 
 func validateAddress(addr string) error {
