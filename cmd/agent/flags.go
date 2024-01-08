@@ -13,7 +13,7 @@ func ParseFlags() (map[string]string, error) {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
 	var pollIntervalArg = pflag.StringP("pollInterval", "p", "2", "pollInterval in seconds")
 	var reportIntervalArg = pflag.StringP("reportInterval", "r", "10", "reportInterval in seconds")
-	var pollInterval, reportInterval string
+	var pollInterval, reportInterval, serverAddress string
 	pflag.Parse()
 
 	args := make(map[string]string)
@@ -36,11 +36,16 @@ func ParseFlags() (map[string]string, error) {
 			return nil, fmt.Errorf("invalid %s: %v", arg, err)
 		}
 	}
-	err := validateAddress(*addr)
+	if envServerAddress := os.Getenv("ADDRESS"); envServerAddress != "" {
+		serverAddress = envServerAddress
+	} else {
+		serverAddress = *addr
+	}
+	err := validateAddress(serverAddress)
 	if err != nil {
 		return nil, err
 	}
-	args["addr"] = *addr
+	args["addr"] = serverAddress
 	return args, nil
 }
 
