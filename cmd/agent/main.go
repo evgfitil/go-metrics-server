@@ -89,13 +89,14 @@ func getIntervalSettings(interval string) (*time.Ticker, error) {
 
 func main() {
 	var pollCount int64
-	args, err := ParseFlags()
+	config := NewConfig()
+	err := config.ParseFlags()
 	if err != nil {
 		log.Fatalf("error getting arguments: %v", err)
 	}
-	serverAddr := args["addr"]
+	serverAddr := config.serverAddress
 	serverURL := "http://" + serverAddr
-	pollIntervalStr, reportIntervalStr := args["pollInterval"], args["reportInterval"]
+	pollIntervalStr, reportIntervalStr := config.pollInterval, config.reportInterval
 
 	pollTicker, err := getIntervalSettings(pollIntervalStr)
 	if err != nil {
