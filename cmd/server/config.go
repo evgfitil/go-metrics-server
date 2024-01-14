@@ -3,28 +3,50 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/pflag"
+	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func ParseFlags() (string, error) {
+type Config struct {
+	bindAddress string
+}
+
+func NewConfig() *Config {
+	return &Config{}
+}
+
+func getEnvOrDefault(envKey, defaultValue string) string {
+	if value := os.Getenv(envKey); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func (c *Config) setAndValidate(key string, defaultValue string) error {
+	var value string
+	switch key {
+	case "ADDRESS":
+		value = getEnvOrDefault(key, defaultValue)
+		if err := validateAddress(value); err != nil {
+			return err
+		}
+		c.bindAddress = value
+	}
+	return nil
+}
+
+func (c *Config) ParseFlags() error {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
 	pflag.Parse()
 
-	var bindAddress string
-	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
-		bindAddress = envRunAddr
-	} else {
-		bindAddress = *addr
+	if err := c.setAndValidate("ADDRESS", *addr); err != nil {
+		log.Fatalf("invalid bind address: %v", err)
+		return err
 	}
-
-	err := validateAddress(bindAddress)
-	if err != nil {
-		return "", err
-	}
-	return bindAddress, nil
+	return nil
 }
 
 func validateAddress(addr string) error {

@@ -20,9 +20,10 @@ func MetricsRouter(s *storage.MemStorage) chi.Router {
 
 func main() {
 	s := storage.NewMemStorage()
-	addr, err := ParseFlags()
+	config := NewConfig()
+	err := config.ParseFlags()
 	if err != nil {
-		log.Fatalf("invalid bind address: %v", err)
+		log.Fatalf("error getting arguments: %v", err)
 	}
-	http.ListenAndServe(addr, MetricsRouter(s))
+	http.ListenAndServe(config.bindAddress, MetricsRouter(s))
 }
