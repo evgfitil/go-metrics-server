@@ -2,33 +2,22 @@ package metrics
 
 import "fmt"
 
-type Metric interface {
-	GetName() string
-	GetValueAsString() string
-}
-
-type Counter struct {
+type Metric struct {
 	Name  string
-	Value int64
+	Type  string
+	Value interface{}
 }
 
-func (c Counter) GetName() string {
-	return c.Name
+func (m Metric) GetName() string {
+	return m.Name
 }
 
-func (c Counter) GetValueAsString() string {
-	return fmt.Sprintf("%d", c.Value)
-}
-
-type Gauge struct {
-	Name  string
-	Value float64
-}
-
-func (g Gauge) GetName() string {
-	return g.Name
-}
-
-func (g Gauge) GetValueAsString() string {
-	return fmt.Sprintf("%g", g.Value)
+func (m Metric) GetValueAsString() (string, error) {
+	switch m.Type {
+	case "Counter":
+		return fmt.Sprintf("%d", m.Value), nil
+	case "Gauge":
+		return fmt.Sprintf("%g", m.Value), nil
+	}
+	return "", fmt.Errorf("unsuported metrics type")
 }
