@@ -3,13 +3,18 @@ package handlers
 import (
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
-	"github.com/evgfitil/go-metrics-server.git/pkg/repositories"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 )
 
-func UpdateCounter(storage repositories.Storage, metricName, metricValue string) error {
+type Storage interface {
+	Update(metric metrics.Metric)
+	Get(metricName string) (metrics.Metric, bool)
+	GetAllMetrics() map[string]metrics.Metric
+}
+
+func UpdateCounter(storage Storage, metricName, metricValue string) error {
 	value, err := strconv.ParseInt(metricValue, 10, 64)
 	if err != nil {
 		return err
@@ -19,7 +24,7 @@ func UpdateCounter(storage repositories.Storage, metricName, metricValue string)
 	return nil
 }
 
-func UpdateGauge(storage repositories.Storage, metricName, metricValue string) error {
+func UpdateGauge(storage Storage, metricName, metricValue string) error {
 	value, err := strconv.ParseFloat(metricValue, 64)
 	if err != nil {
 		return err
@@ -29,7 +34,7 @@ func UpdateGauge(storage repositories.Storage, metricName, metricValue string) e
 	return nil
 }
 
-func GetMetrics(storage repositories.Storage) http.HandlerFunc {
+func GetMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// request checking
 		if req.Method != http.MethodGet {
@@ -56,7 +61,7 @@ func GetMetrics(storage repositories.Storage) http.HandlerFunc {
 	}
 }
 
-func UpdateMetrics(storage repositories.Storage) http.HandlerFunc {
+func UpdateMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
@@ -84,12 +89,12 @@ func UpdateMetrics(storage repositories.Storage) http.HandlerFunc {
 	}
 }
 
-func GetAllMetrics(storage repositories.Storage) http.HandlerFunc {
+func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(res, "<html><body>\n")
-		metrics := storage.GetAllMetrics()
-		for _, metric := range metrics {
+		allMetrics := storage.GetAllMetrics()
+		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
 				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.Name, err)
