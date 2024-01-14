@@ -12,6 +12,10 @@ func (m Metric) GetName() string {
 	return m.Name
 }
 
+func (m Metric) GetType() string {
+	return m.Type
+}
+
 func (m Metric) GetValueAsString() (string, error) {
 	switch m.Type {
 	case "counter":
@@ -20,4 +24,20 @@ func (m Metric) GetValueAsString() (string, error) {
 		return fmt.Sprintf("%g", m.Value), nil
 	}
 	return "", fmt.Errorf("unsuported metrics type")
+}
+
+func NewGauge(name string, value float64) Metric {
+	return Metric{
+		Name:  name,
+		Type:  "gauge",
+		Value: value,
+	}
+}
+
+func NewCounter(name string, value int64) Metric {
+	return Metric{
+		Name:  name,
+		Type:  "counter",
+		Value: value,
+	}
 }
