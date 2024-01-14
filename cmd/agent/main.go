@@ -57,7 +57,7 @@ func sendMetrics(metrics []MetricInterface, serverURL string) {
 	for _, metric := range metrics {
 		metricValue, err := metric.GetValueAsString()
 		if err != nil {
-			fmt.Errorf("internal error: %v\n", err)
+			log.Println("internal error", err)
 			continue
 		}
 		urlFormat := "%s/update/{metricType}/{metricName}/{metricValue}"
