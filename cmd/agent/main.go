@@ -78,51 +78,58 @@ func sendMetrics(metrics []MetricInterface, serverURL string) {
 	}
 }
 
-func getIntervalSettings(interval string) (*time.Ticker, error) {
+func getIntervalSettings(interval string) (time.Duration, error) {
 	i, err := strconv.Atoi(interval)
 	if err != nil {
-		return nil, fmt.Errorf("invalid interval: %v", err)
+		return 0, fmt.Errorf("invalid interval: %v", err)
 	}
-	res := time.NewTicker(time.Duration(i) * time.Second)
+	res := time.Duration(i) * time.Second
 	return res, nil
 }
 
 func main() {
-	var pollCount int64
 	config := NewConfig()
 	err := config.ParseFlags()
 	if err != nil {
 		log.Fatalf("error getting arguments: %v", err)
 	}
-	serverAddr := config.serverAddress
-	serverURL := "http://" + serverAddr
+	serverURL := "http://" + config.serverAddress
 	pollIntervalStr, reportIntervalStr := config.pollInterval, config.reportInterval
 
-	pollTicker, err := getIntervalSettings(pollIntervalStr)
+	pollInterval, err := getIntervalSettings(pollIntervalStr)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
 
-	reportTicker, err := getIntervalSettings(reportIntervalStr)
+	reportInterval, err := getIntervalSettings(reportIntervalStr)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-
-	defer pollTicker.Stop()
-	defer reportTicker.Stop()
 
 	var collectedMetrics []MetricInterface
+	var pollCount int64
+	lastPollTime, lastReportTime := time.Now(), time.Now()
+
 	for {
-		select {
-		case <-pollTicker.C:
+		now := time.Now()
+
+		if now.Sub(lastPollTime) >= pollInterval {
 			pollCount++
 			var m runtime.MemStats
 			runtime.ReadMemStats(&m)
 			collectedMetrics = collectMetrics(&m)
 			collectedMetrics = append(collectedMetrics, metrics.NewCounter("PollCount", pollCount))
-		case <-reportTicker.C:
+
+			lastPollTime = now
+		}
+
+		if now.Sub(lastReportTime) > reportInterval {
 			sendMetrics(collectedMetrics, serverURL)
 			collectedMetrics = []MetricInterface{}
+
+			lastReportTime = now
 		}
+
+		time.Sleep(1 * time.Second)
 	}
 }
