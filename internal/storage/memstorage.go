@@ -14,7 +14,7 @@ func NewMemStorage() *MemStorage {
 
 func (m *MemStorage) Update(metric metrics.Metric) {
 	switch metric.Type {
-	case "Counter":
+	case "counter":
 		if oldMetric, ok := m.metrics[metric.Name]; ok {
 			if oldValue, ok := oldMetric.Value.(int64); ok {
 				newMetric := metrics.Metric{
@@ -27,7 +27,7 @@ func (m *MemStorage) Update(metric metrics.Metric) {
 		} else {
 			m.metrics[metric.Name] = metric
 		}
-	case "Gauge":
+	case "gauge":
 		m.metrics[metric.Name] = metric
 	}
 }

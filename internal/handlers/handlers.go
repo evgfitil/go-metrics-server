@@ -14,7 +14,7 @@ func UpdateCounter(storage repositories.Storage, metricName, metricValue string)
 	if err != nil {
 		return err
 	}
-	metric := metrics.Counter{Name: metricName, Value: value}
+	metric := metrics.Metric{Name: metricName, Type: "counter", Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -24,7 +24,7 @@ func UpdateGauge(storage repositories.Storage, metricName, metricValue string) e
 	if err != nil {
 		return err
 	}
-	metric := metrics.Gauge{Name: metricName, Value: value}
+	metric := metrics.Metric{Name: metricName, Type: "gauge", Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -48,13 +48,16 @@ func GetMetrics(storage repositories.Storage) http.HandlerFunc {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
 		}
-		fmt.Fprintln(res, metric.GetValueAsString())
+		valueStr, err := metric.GetValueAsString()
+		if err != nil {
+			return
+		}
+		fmt.Fprintln(res, valueStr)
 	}
 }
 
 func UpdateMetrics(storage repositories.Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		// request checking
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
@@ -87,7 +90,12 @@ func GetAllMetrics(storage repositories.Storage) http.HandlerFunc {
 		fmt.Fprintf(res, "<html><body>\n")
 		metrics := storage.GetAllMetrics()
 		for _, metric := range metrics {
-			fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.GetName(), metric.GetValueAsString())
+			valueStr, err := metric.GetValueAsString()
+			if err != nil {
+				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.Name, err)
+			} else {
+				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.Name, valueStr)
+			}
 		}
 		fmt.Fprintf(res, "</body></html>\n")
 	}

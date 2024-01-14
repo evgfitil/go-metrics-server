@@ -14,9 +14,9 @@ func (m Metric) GetName() string {
 
 func (m Metric) GetValueAsString() (string, error) {
 	switch m.Type {
-	case "Counter":
+	case "counter":
 		return fmt.Sprintf("%d", m.Value), nil
-	case "Gauge":
+	case "gauge":
 		return fmt.Sprintf("%g", m.Value), nil
 	}
 	return "", fmt.Errorf("unsuported metrics type")
