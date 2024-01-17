@@ -36,7 +36,6 @@ func InitLogger() {
 	if err != nil {
 		panic("cannot initialize zap logger")
 	}
-	defer logger.Sync()
 	Sugar = logger.Sugar()
 }
 
