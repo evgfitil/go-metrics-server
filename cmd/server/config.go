@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/spf13/pflag"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -43,7 +43,7 @@ func (c *Config) ParseFlags() error {
 	pflag.Parse()
 
 	if err := c.setAndValidate("ADDRESS", *addr); err != nil {
-		log.Fatalf("invalid bind address: %v", err)
+		logger.Sugar.Fatalf("invalid bind address: %v", err)
 		return err
 	}
 	return nil
