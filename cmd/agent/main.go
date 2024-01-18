@@ -17,7 +17,7 @@ type MetricInterface interface {
 	GetValueAsString() (string, error)
 }
 
-var _ MetricInterface = (*metrics.Metric)(nil)
+var _ MetricInterface = (*metrics.Metrics)(nil)
 
 func collectMetrics(m *runtime.MemStats) []MetricInterface {
 	collectedMetrics := []MetricInterface{

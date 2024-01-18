@@ -9,9 +9,9 @@ import (
 )
 
 type Storage interface {
-	Update(metric metrics.Metric)
-	Get(metricName string) (metrics.Metric, bool)
-	GetAllMetrics() map[string]metrics.Metric
+	Update(metric metrics.Metrics)
+	Get(metricName string) (metrics.Metrics, bool)
+	GetAllMetrics() map[string]metrics.Metrics
 }
 
 func UpdateCounter(storage Storage, metricName, metricValue string) error {
@@ -19,7 +19,7 @@ func UpdateCounter(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metric{ID: metricName, MType: "counter", Value: value}
+	metric := metrics.Metrics{ID: metricName, MType: "counter", Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -29,7 +29,7 @@ func UpdateGauge(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metric{ID: metricName, MType: "gauge", Value: value}
+	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: value}
 	storage.Update(metric)
 	return nil
 }
