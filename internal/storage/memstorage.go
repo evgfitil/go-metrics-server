@@ -13,22 +13,22 @@ func NewMemStorage() *MemStorage {
 }
 
 func (m *MemStorage) Update(metric metrics.Metric) {
-	switch metric.Type {
+	switch metric.MType {
 	case "counter":
-		if oldMetric, ok := m.metrics[metric.Name]; ok {
+		if oldMetric, ok := m.metrics[metric.ID]; ok {
 			if oldValue, ok := oldMetric.Value.(int64); ok {
 				newMetric := metrics.Metric{
-					Name:  metric.Name,
-					Type:  metric.Type,
+					ID:    metric.ID,
+					MType: metric.MType,
 					Value: metric.Value.(int64) + oldValue,
 				}
-				m.metrics[metric.Name] = newMetric
+				m.metrics[metric.ID] = newMetric
 			}
 		} else {
-			m.metrics[metric.Name] = metric
+			m.metrics[metric.ID] = metric
 		}
 	case "gauge":
-		m.metrics[metric.Name] = metric
+		m.metrics[metric.ID] = metric
 	}
 }
 

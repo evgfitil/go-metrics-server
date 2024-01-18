@@ -19,7 +19,7 @@ func UpdateCounter(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metric{Name: metricName, Type: "counter", Value: value}
+	metric := metrics.Metric{ID: metricName, MType: "counter", Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -29,7 +29,7 @@ func UpdateGauge(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metric{Name: metricName, Type: "gauge", Value: value}
+	metric := metrics.Metric{ID: metricName, MType: "gauge", Value: value}
 	storage.Update(metric)
 	return nil
 }
@@ -97,9 +97,9 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
-				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.Name, err)
+				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.ID, err)
 			} else {
-				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.Name, valueStr)
+				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.ID, valueStr)
 			}
 		}
 		fmt.Fprintf(res, "</body></html>\n")
