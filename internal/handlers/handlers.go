@@ -19,7 +19,7 @@ func UpdateCounter(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metrics{ID: metricName, MType: "counter", Value: value}
+	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &value}
 	storage.Update(metric)
 	return nil
 }
@@ -29,7 +29,7 @@ func UpdateGauge(storage Storage, metricName, metricValue string) error {
 	if err != nil {
 		return err
 	}
-	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: value}
+	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &value}
 	storage.Update(metric)
 	return nil
 }

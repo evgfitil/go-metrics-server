@@ -16,11 +16,12 @@ func (m *MemStorage) Update(metric metrics.Metrics) {
 	switch metric.MType {
 	case "counter":
 		if oldMetric, ok := m.metrics[metric.ID]; ok {
-			if oldValue, ok := oldMetric.Value.(int64); ok {
+			if oldDelta := oldMetric.Delta; oldDelta != nil {
+				newDelta := *metric.Delta + *oldDelta
 				newMetric := metrics.Metrics{
 					ID:    metric.ID,
 					MType: metric.MType,
-					Value: metric.Value.(int64) + oldValue,
+					Delta: &newDelta,
 				}
 				m.metrics[metric.ID] = newMetric
 			}

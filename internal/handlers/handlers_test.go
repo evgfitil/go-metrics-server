@@ -22,7 +22,8 @@ func testMetricsRouter(s *storage.MemStorage) chi.Router {
 
 func TestGetMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
-	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Value: 100}
+	testCounterValue := int64(100)
+	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &testCounterValue}
 	mockStorage.Update(mockMetric)
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))

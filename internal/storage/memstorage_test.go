@@ -8,17 +8,21 @@ import (
 
 func TestMemStorage(t *testing.T) {
 	storage := NewMemStorage()
+	var testGaugeMetricValue float64
+	var testCounterMetricValue int64
+	testGaugeMetricValue = 46.4
+	testCounterMetricValue = 1
 
-	testMetricGauge := metrics.Metric{ID: "test", MType: "gauge", Value: float64(46.4)}
+	testMetricGauge := metrics.Metrics{ID: "test", MType: "gauge", Value: &testGaugeMetricValue}
 	storage.Update(testMetricGauge)
 	retrievedMetric, ok := storage.Get("test")
 	assert.True(t, ok, "the metric must exists")
 	assert.Equal(t, testMetricGauge, retrievedMetric, "metrics must be equal")
 
-	testMetricCounter := metrics.Metric{ID: "counter", MType: "counter", Value: int64(1)}
+	testMetricCounter := metrics.Metrics{ID: "counter", MType: "counter", Delta: &testCounterMetricValue}
 	storage.Update(testMetricCounter)
 	storage.Update(testMetricCounter)
 
 	retrievedCounter, _ := storage.Get("counter")
-	assert.Equal(t, int64(2), retrievedCounter.Value, "counter value must increment")
+	assert.Equal(t, int64(2), *retrievedCounter.Delta, "counter value must increment")
 }
