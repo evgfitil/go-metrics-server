@@ -11,17 +11,14 @@ import (
 func MetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", handlers.GetAllMetrics(s))
-	r.Get("/value/{type}/{name}", handlers.GetMetrics(s))
-	r.Route("/update", func(r chi.Router) {
-		r.Post("/{type}/{name}/{value}", handlers.UpdateMetrics(s))
-	})
+	r.Post("/value", handlers.GetMetrics(s))
+	r.Post("/update", handlers.UpdateMetrics(s))
 	return r
 }
 
 func main() {
 	logger.InitLogger()
 	defer logger.Sugar.Sync()
-
 	s := storage.NewMemStorage()
 	config := NewConfig()
 	err := config.ParseFlags()

@@ -1,11 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
-	"github.com/go-chi/chi/v5"
 	"net/http"
-	"strconv"
 )
 
 type Storage interface {
@@ -14,35 +13,33 @@ type Storage interface {
 	GetAllMetrics() map[string]metrics.Metrics
 }
 
-func UpdateCounter(storage Storage, metricName, metricValue string) error {
-	value, err := strconv.ParseInt(metricValue, 10, 64)
-	if err != nil {
-		return err
-	}
-	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &value}
+func UpdateCounter(storage Storage, metricName string, metricValue int64) error {
+	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &metricValue}
 	storage.Update(metric)
 	return nil
 }
 
-func UpdateGauge(storage Storage, metricName, metricValue string) error {
-	value, err := strconv.ParseFloat(metricValue, 64)
-	if err != nil {
-		return err
-	}
-	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &value}
+func UpdateGauge(storage Storage, metricName string, metricValue float64) error {
+	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &metricValue}
 	storage.Update(metric)
 	return nil
 }
 
 func GetMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		// request checking
-		if req.Method != http.MethodGet {
+		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
 		}
-		metricName := chi.URLParam(req, "name")
-		metricType := chi.URLParam(req, "type")
+		var requestMetric metrics.Metrics
+
+		if err := json.NewDecoder(req.Body).Decode(&requestMetric); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		metricName := requestMetric.ID
+		metricType := requestMetric.MType
 
 		if metricType != "counter" && metricType != "gauge" {
 			http.Error(res, "Unsupported metric type", http.StatusNotFound)
@@ -53,39 +50,79 @@ func GetMetrics(storage Storage) http.HandlerFunc {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
 		}
-		valueStr, err := metric.GetValueAsString()
+
+		jsonResponse, err := json.Marshal(metric)
 		if err != nil {
+			http.Error(res, "Error marshaling json", http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintln(res, valueStr)
+
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(jsonResponse)
 	}
 }
 
 func UpdateMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Content-Type") != "application/json" {
+			http.Error(res, "Invalid Content-type, expected 'application/json'", http.StatusUnsupportedMediaType)
+		}
+
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
 		}
 
-		metricType := chi.URLParam(req, "type")
-		metricName := chi.URLParam(req, "name")
-		metricValue := chi.URLParam(req, "value")
+		var incomingMetric metrics.Metrics
+
+		if err := json.NewDecoder(req.Body).Decode(&incomingMetric); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		metricType := incomingMetric.MType
+		metricName := incomingMetric.ID
 
 		switch metricType {
 		case "counter":
-			if err := UpdateCounter(storage, metricName, metricValue); err != nil {
+			metricValue := incomingMetric.Delta
+			if metricValue == nil {
+				http.Error(res, "Missing metric value", http.StatusBadRequest)
+				return
+			}
+			if err := UpdateCounter(storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 		case "gauge":
-			if err := UpdateGauge(storage, metricName, metricValue); err != nil {
+			metricValue := incomingMetric.Value
+			if metricValue == nil {
+				http.Error(res, "Missing metric value", http.StatusBadRequest)
+				return
+			}
+			if err := UpdateGauge(storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
+				return
 			}
 		default:
 			http.Error(res, "Unsupported metric type", http.StatusBadRequest)
 			return
 		}
+
+		updateMetric, ok := storage.Get(metricName)
+		if !ok {
+			http.Error(res, "Error retrieving updated metric", http.StatusInternalServerError)
+			return
+		}
+
+		jsonResponse, err := json.Marshal(updateMetric)
+		if err != nil {
+			http.Error(res, "Error marshaling JSON", http.StatusInternalServerError)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(jsonResponse)
 	}
 }
 
