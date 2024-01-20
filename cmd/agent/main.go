@@ -47,6 +47,7 @@ func collectMetrics(m *runtime.MemStats) []MetricInterface {
 		metrics.NewGauge("OtherSys", float64(m.OtherSys)),
 		metrics.NewGauge("PauseTotalNs", float64(m.PauseTotalNs)),
 		metrics.NewGauge("StackInuse", float64(m.StackInuse)),
+		metrics.NewGauge("StackSys", float64(m.StackSys)),
 		metrics.NewGauge("Sys", float64(m.Sys)),
 		metrics.NewGauge("TotalAlloc", float64(m.TotalAlloc)),
 		metrics.NewGauge("RandomValue", rand.Float64()),
@@ -61,7 +62,7 @@ func sendMetrics(metrics []MetricInterface, serverURL string) {
 		if err != nil {
 			logger.Sugar.Errorln("error marshaling json: %v", err)
 		}
-		urlFormat := "/update"
+		urlFormat := "/update/"
 		url := serverURL + urlFormat
 
 		client := resty.New()
