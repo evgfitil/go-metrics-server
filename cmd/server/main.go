@@ -11,8 +11,14 @@ import (
 func MetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", handlers.GetAllMetrics(s))
-	r.Post("/value/", handlers.GetMetrics(s))
-	r.Post("/update/", handlers.UpdateMetrics(s))
+	r.Route("/value", func(r chi.Router) {
+		r.Post("/", handlers.GetMetricsJson(s))
+		r.Get("/{type}/{name}", handlers.GetMetricsPlain(s))
+	})
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", handlers.UpdateMetricsJson(s))
+		r.Post("/{type}/{name}/{value}", handlers.UpdateMetricsPlain(s))
+	})
 	return r
 }
 

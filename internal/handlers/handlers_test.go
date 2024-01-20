@@ -16,8 +16,8 @@ import (
 
 func testMetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
-	r.Post("/value/", GetMetrics(s))
-	r.Post("/update/", UpdateMetrics(s))
+	r.Post("/value/", GetMetricsJson(s))
+	r.Post("/update/", UpdateMetricsJson(s))
 	return r
 }
 

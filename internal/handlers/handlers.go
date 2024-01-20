@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"github.com/go-chi/chi/v5"
 	"net/http"
+	"strconv"
 )
 
 type Storage interface {
@@ -13,19 +15,19 @@ type Storage interface {
 	GetAllMetrics() map[string]metrics.Metrics
 }
 
-func UpdateCounter(storage Storage, metricName string, metricValue int64) error {
+func updateCounter(storage Storage, metricName string, metricValue int64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &metricValue}
 	storage.Update(metric)
 	return nil
 }
 
-func UpdateGauge(storage Storage, metricName string, metricValue float64) error {
+func updateGauge(storage Storage, metricName string, metricValue float64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &metricValue}
 	storage.Update(metric)
 	return nil
 }
 
-func GetMetrics(storage Storage) http.HandlerFunc {
+func GetMetricsJson(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
@@ -62,7 +64,34 @@ func GetMetrics(storage Storage) http.HandlerFunc {
 	}
 }
 
-func UpdateMetrics(storage Storage) http.HandlerFunc {
+func GetMetricsPlain(storage Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+
+		if req.Method != http.MethodGet {
+			http.Error(res, "Invalid request method", http.StatusBadRequest)
+			return
+		}
+		metricName := chi.URLParam(req, "name")
+		metricType := chi.URLParam(req, "type")
+
+		if metricType != "counter" && metricType != "gauge" {
+			http.Error(res, "Unsupported metric type", http.StatusNotFound)
+			return
+		}
+		metric, ok := storage.Get(metricName)
+		if !ok {
+			http.Error(res, "Metric not found", http.StatusNotFound)
+			return
+		}
+		valueStr, err := metric.GetValueAsString()
+		if err != nil {
+			return
+		}
+		fmt.Fprintln(res, valueStr)
+	}
+}
+
+func UpdateMetricsJson(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Header.Get("Content-Type") != "application/json" {
 			http.Error(res, "Invalid Content-type, expected 'application/json'", http.StatusUnsupportedMediaType)
@@ -90,7 +119,7 @@ func UpdateMetrics(storage Storage) http.HandlerFunc {
 				http.Error(res, "Missing metric value", http.StatusBadRequest)
 				return
 			}
-			if err := UpdateCounter(storage, metricName, *metricValue); err != nil {
+			if err := updateCounter(storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -100,7 +129,7 @@ func UpdateMetrics(storage Storage) http.HandlerFunc {
 				http.Error(res, "Missing metric value", http.StatusBadRequest)
 				return
 			}
-			if err := UpdateGauge(storage, metricName, *metricValue); err != nil {
+			if err := updateGauge(storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -123,6 +152,45 @@ func UpdateMetrics(storage Storage) http.HandlerFunc {
 
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(jsonResponse)
+	}
+}
+
+func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodPost {
+			http.Error(res, "Invalid request method", http.StatusBadRequest)
+			return
+		}
+
+		metricType := chi.URLParam(req, "type")
+		metricName := chi.URLParam(req, "name")
+		metricValueStr := chi.URLParam(req, "value")
+
+		switch metricType {
+		case "counter":
+			metricValue, err := strconv.ParseInt(metricValueStr, 10, 64)
+			if err != nil {
+				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := updateCounter(storage, metricName, metricValue); err != nil {
+				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		case "gauge":
+			metricValue, err := strconv.ParseFloat(metricValueStr, 64)
+			if err != nil {
+				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := updateGauge(storage, metricName, metricValue); err != nil {
+				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		default:
+			http.Error(res, "Unsupported metric type", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
