@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/go-resty/resty/v2"
 	"log"
@@ -55,21 +57,18 @@ func collectMetrics(m *runtime.MemStats) []MetricInterface {
 
 func sendMetrics(metrics []MetricInterface, serverURL string) {
 	for _, metric := range metrics {
-		metricValue, err := metric.GetValueAsString()
+		sendingMetric, err := json.Marshal(metric)
 		if err != nil {
-			log.Println("internal error", err)
-			continue
+			logger.Sugar.Errorln("error marshaling json: %v", err)
 		}
-		urlFormat := "%s/update/{metricType}/{metricName}/{metricValue}"
-		url := fmt.Sprintf(urlFormat, serverURL)
+		urlFormat := "/update"
+		url := serverURL + urlFormat
 
 		client := resty.New()
 		_, err = client.R().
-			SetPathParams(map[string]string{
-				"metricType":  metric.GetType(),
-				"metricName":  metric.GetName(),
-				"metricValue": metricValue,
-			}).Post(url)
+			SetHeader("Content-type", "application/json").
+			SetBody(sendingMetric).
+			Post(url)
 
 		if err != nil {
 			log.Println("error sending metric:", err)
@@ -88,6 +87,8 @@ func getIntervalSettings(interval string) (time.Duration, error) {
 }
 
 func main() {
+	logger.InitLogger()
+	defer logger.Sugar.Sync()
 	config := NewConfig()
 	err := config.ParseFlags()
 	if err != nil {
