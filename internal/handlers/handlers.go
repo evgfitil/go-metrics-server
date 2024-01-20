@@ -27,7 +27,7 @@ func updateGauge(storage Storage, metricName string, metricValue float64) error 
 	return nil
 }
 
-func GetMetricsJson(storage Storage) http.HandlerFunc {
+func GetMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
@@ -91,7 +91,7 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 	}
 }
 
-func UpdateMetricsJson(storage Storage) http.HandlerFunc {
+func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Header.Get("Content-Type") != "application/json" {
 			http.Error(res, "Invalid Content-type, expected 'application/json'", http.StatusUnsupportedMediaType)
