@@ -10,6 +10,7 @@ import (
 
 func MetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
+	r.Use(handlers.GzipMiddleware)
 	r.Get("/", handlers.GetAllMetrics(s))
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", handlers.GetMetricsJSON(s))

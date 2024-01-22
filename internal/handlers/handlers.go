@@ -27,6 +27,23 @@ func updateGauge(storage Storage, metricName string, metricValue float64) error 
 	return nil
 }
 
+func GetAllMetrics(storage Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(res, "<html><body>\n")
+		allMetrics := storage.GetAllMetrics()
+		for _, metric := range allMetrics {
+			valueStr, err := metric.GetValueAsString()
+			if err != nil {
+				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.ID, err)
+			} else {
+				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.ID, valueStr)
+			}
+		}
+		fmt.Fprintf(res, "</body></html>\n")
+	}
+}
+
 func GetMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
@@ -191,22 +208,5 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusBadRequest)
 			return
 		}
-	}
-}
-
-func GetAllMetrics(storage Storage) http.HandlerFunc {
-	return func(res http.ResponseWriter, req *http.Request) {
-		res.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(res, "<html><body>\n")
-		allMetrics := storage.GetAllMetrics()
-		for _, metric := range allMetrics {
-			valueStr, err := metric.GetValueAsString()
-			if err != nil {
-				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.ID, err)
-			} else {
-				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.ID, valueStr)
-			}
-		}
-		fmt.Fprintf(res, "</body></html>\n")
 	}
 }
