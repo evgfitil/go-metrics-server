@@ -11,41 +11,66 @@ import (
 )
 
 type Config struct {
-	bindAddress string
+	bindAddress     string
+	storeInterval   uint16
+	fileStoragePath string
+	restore         bool
 }
 
 func NewConfig() *Config {
 	return &Config{}
 }
 
-func getEnvOrDefault(envKey, defaultValue string) string {
-	if value := os.Getenv(envKey); value != "" {
+func getEnvOrDefault(envKey, defaultValue interface{}) interface{} {
+	if value := os.Getenv(envKey.(string)); value != "" {
 		return value
 	}
 	return defaultValue
 }
 
-func (c *Config) setAndValidate(key string, defaultValue string) error {
-	var value string
+func (c *Config) setAndValidate(key string, defaultValue interface{}) error {
+	var value interface{}
 	switch key {
 	case "ADDRESS":
 		value = getEnvOrDefault(key, defaultValue)
-		if err := validateAddress(value); err != nil {
+		if err := validateAddress(value.(string)); err != nil {
+			logger.Sugar.Fatalf("invalid bind address: %v", err)
 			return err
 		}
-		c.bindAddress = value
+		c.bindAddress = value.(string)
+	case "STORE_INTERVAL":
+		value = getEnvOrDefault(key, defaultValue.(uint16))
+		c.storeInterval = value.(uint16)
+	case "FILE_STORAGE_PATH":
+		value = getEnvOrDefault(key, defaultValue.(string))
+		c.fileStoragePath = value.(string)
+	case "RESTORE":
+		value = getEnvOrDefault(key, defaultValue.(bool))
+		c.restore = value.(bool)
 	}
 	return nil
 }
 
 func (c *Config) ParseFlags() error {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
+	var storeIntervalArg = pflag.Uint16P("storeInterval", "i", 300, "Interval in seconds for storage data to a file")
+	var fileStoragePathArg = pflag.StringP("fileStoragePath", "f", "/tmp/metrics-db.json", "File path where the server write its data")
+	var restoreArg = pflag.BoolP("restore", "r", true, "Controls loading previously saved values from a file at server startup")
 	pflag.Parse()
 
-	if err := c.setAndValidate("ADDRESS", *addr); err != nil {
-		logger.Sugar.Fatalf("invalid bind address: %v", err)
-		return err
+	envsAndArgs := map[string]interface{}{
+		"ADDRESS":           *addr,
+		"STORE_INTERVAL":    *storeIntervalArg,
+		"FILE_STORAGE_PATH": *fileStoragePathArg,
+		"RESTORE":           *restoreArg,
 	}
+
+	for env, flag := range envsAndArgs {
+		if err := c.setAndValidate(env, flag); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
