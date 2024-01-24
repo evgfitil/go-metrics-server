@@ -10,20 +10,20 @@ import (
 )
 
 type Storage interface {
-	Update(metric metrics.Metrics)
-	Get(metricName string) (metrics.Metrics, bool)
-	GetAllMetrics() map[string]metrics.Metrics
+	Update(metric *metrics.Metrics)
+	Get(metricName string) (*metrics.Metrics, bool)
+	GetAllMetrics() map[string]*metrics.Metrics
 }
 
 func updateCounter(storage Storage, metricName string, metricValue int64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &metricValue}
-	storage.Update(metric)
+	storage.Update(&metric)
 	return nil
 }
 
 func updateGauge(storage Storage, metricName string, metricValue float64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &metricValue}
-	storage.Update(metric)
+	storage.Update(&metric)
 	return nil
 }
 
