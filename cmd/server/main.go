@@ -5,12 +5,13 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 )
 
 func MetricsRouter(s *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
-	r.Use(handlers.GzipMiddleware)
+	r.Use(middleware.Compress(5))
 	r.Get("/", handlers.GetAllMetrics(s))
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", handlers.GetMetricsJSON(s))
