@@ -53,7 +53,7 @@ func (c *Config) setAndValidate(key string, defaultValue interface{}) error {
 
 func (c *Config) ParseFlags() error {
 	var addr = pflag.StringP("address", "a", "localhost:8080", "Bind address for the server in the format host:port")
-	var storeIntervalArg = pflag.Uint16P("storeInterval", "i", 300, "Interval in seconds for storage data to a file")
+	var storeIntervalArg = pflag.Uint16P("storeInterval", "i", 10, "Interval in seconds for storage data to a file")
 	var fileStoragePathArg = pflag.StringP("fileStoragePath", "f", "/tmp/metrics-db.json", "File path where the server write its data")
 	var restoreArg = pflag.BoolP("restore", "r", true, "Controls loading previously saved values from a file at server startup")
 	pflag.Parse()

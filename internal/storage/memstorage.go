@@ -6,13 +6,15 @@ import (
 )
 
 type MemStorage struct {
-	metrics map[string]*metrics.Metrics
-	mu      sync.RWMutex
+	metrics    map[string]*metrics.Metrics
+	mu         sync.RWMutex
+	saveSignal chan struct{}
 }
 
-func NewMemStorage() *MemStorage {
+func NewMemStorage(saveSignal chan struct{}) *MemStorage {
 	return &MemStorage{
-		metrics: make(map[string]*metrics.Metrics),
+		metrics:    make(map[string]*metrics.Metrics),
+		saveSignal: saveSignal,
 	}
 }
 
@@ -37,6 +39,13 @@ func (m *MemStorage) Update(metric *metrics.Metrics) {
 		}
 	case "gauge":
 		m.metrics[metric.ID] = metric
+	}
+
+	if m.saveSignal != nil {
+		select {
+		case m.saveSignal <- struct{}{}:
+		default:
+		}
 	}
 }
 

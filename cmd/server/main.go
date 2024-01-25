@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
+	"time"
 )
 
 func MetricsRouter(s *storage.MemStorage) chi.Router {
@@ -27,11 +28,26 @@ func MetricsRouter(s *storage.MemStorage) chi.Router {
 func main() {
 	logger.InitLogger()
 	defer logger.Sugar.Sync()
-	s := storage.NewMemStorage()
+
 	config := NewConfig()
 	err := config.ParseFlags()
 	if err != nil {
 		logger.Sugar.Fatalf("error getting arguments: %v", err)
+	}
+	var saveSignal chan struct{}
+	if config.storeInterval == 0 {
+		saveSignal = make(chan struct{})
+	}
+	s := storage.NewMemStorage(saveSignal)
+
+	var fileStorage *storage.FileStorage
+	if config.fileStoragePath != "" {
+		fileStorage, err = storage.NewFileStorage(
+			config.fileStoragePath, s, time.Duration(config.storeInterval)*time.Second)
+		if err != nil {
+			logger.Sugar.Fatalf("error initializing file storage: %v", err)
+		}
+		defer fileStorage.Close()
 	}
 	logger.Sugar.Infoln("starting server")
 	err = http.ListenAndServe(config.bindAddress, logger.WithLogging(MetricsRouter(s)))
