@@ -44,9 +44,9 @@ func (c *Config) setAndValidate(key string, defaultValue interface{}) error {
 	case "FILE_STORAGE_PATH":
 		value = getEnvOrDefault(key, defaultValue.(string))
 		c.fileStoragePath = value.(string)
-	case "RESTORE":
-		value = getEnvOrDefault(key, defaultValue.(bool))
-		c.restore = value.(bool)
+		//case "RESTORE":
+		//	value = getEnvOrDefault(key, defaultValue.(bool))
+		//	c.restore = value.(bool)
 	}
 	return nil
 }

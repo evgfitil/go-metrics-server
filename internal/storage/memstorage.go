@@ -1,9 +1,13 @@
 package storage
 
-import "github.com/evgfitil/go-metrics-server.git/internal/metrics"
+import (
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"sync"
+)
 
 type MemStorage struct {
 	metrics map[string]*metrics.Metrics
+	mu      sync.RWMutex
 }
 
 func NewMemStorage() *MemStorage {
@@ -13,6 +17,9 @@ func NewMemStorage() *MemStorage {
 }
 
 func (m *MemStorage) Update(metric *metrics.Metrics) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	switch metric.MType {
 	case "counter":
 		if oldMetric, ok := m.metrics[metric.ID]; ok {
@@ -34,10 +41,16 @@ func (m *MemStorage) Update(metric *metrics.Metrics) {
 }
 
 func (m *MemStorage) Get(metricName string) (*metrics.Metrics, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	metric, ok := m.metrics[metricName]
 	return metric, ok
 }
 
 func (m *MemStorage) GetAllMetrics() map[string]*metrics.Metrics {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	return m.metrics
 }
