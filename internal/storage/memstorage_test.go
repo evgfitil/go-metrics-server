@@ -17,7 +17,7 @@ func TestMemStorage(t *testing.T) {
 	storage.Update(&testMetricGauge)
 	retrievedMetric, ok := storage.Get("test")
 	assert.True(t, ok, "the metric must exists")
-	assert.Equal(t, testMetricGauge, retrievedMetric, "metrics must be equal")
+	assert.Equal(t, testMetricGauge, *retrievedMetric, "metrics must be equal")
 
 	testMetricCounter := metrics.Metrics{ID: "counter", MType: "counter", Delta: &testCounterMetricValue}
 	storage.Update(&testMetricCounter)
