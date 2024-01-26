@@ -7,6 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -43,15 +46,33 @@ func main() {
 	var fileStorage *storage.FileStorage
 	if config.fileStoragePath != "" {
 		fileStorage, err = storage.NewFileStorage(
-			config.fileStoragePath, s, time.Duration(config.storeInterval)*time.Second)
+			config.fileStoragePath, s, time.Duration(config.storeInterval)*time.Second, saveSignal)
 		if err != nil {
 			logger.Sugar.Fatalf("error initializing file storage: %v", err)
 		}
 		defer fileStorage.Close()
+		if config.restore {
+			if err := fileStorage.LoadMetrics(); err != nil {
+				logger.Sugar.Errorf("error loading metrics: %v", err)
+			}
+		}
 	}
-	logger.Sugar.Infoln("starting server")
-	err = http.ListenAndServe(config.bindAddress, logger.WithLogging(MetricsRouter(s)))
-	if err != nil {
-		logger.Sugar.Fatalf("error starting server: %v", err)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		logger.Sugar.Infoln("starting server")
+		err = http.ListenAndServe(config.bindAddress, logger.WithLogging(MetricsRouter(s)))
+		if err != nil {
+			logger.Sugar.Fatalf("error starting server: %v", err)
+		}
+	}()
+
+	<-quit
+	logger.Sugar.Info("shutting down server")
+
+	if fileStorage != nil {
+		if err := fileStorage.Close(); err != nil {
+			logger.Sugar.Errorf("error closing file storage: %v", err)
+		}
 	}
 }

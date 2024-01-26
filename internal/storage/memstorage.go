@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
 )
@@ -42,6 +43,7 @@ func (m *MemStorage) Update(metric *metrics.Metrics) {
 	}
 
 	if m.saveSignal != nil {
+		fmt.Println("start sync writing")
 		select {
 		case m.saveSignal <- struct{}{}:
 		default:

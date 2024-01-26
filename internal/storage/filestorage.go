@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"os"
 	"sync"
 	"time"
@@ -16,8 +17,8 @@ type FileStorage struct {
 	saveSignal    chan struct{}
 }
 
-func NewFileStorage(filename string, memStorage *MemStorage, storeInteval time.Duration) (*FileStorage, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+func NewFileStorage(filename string, memStorage *MemStorage, storeInteval time.Duration, saveSignal chan struct{}) (*FileStorage, error) {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		logger.Sugar.Fatalf("error open file: %v", err)
 		return nil, err
@@ -27,11 +28,31 @@ func NewFileStorage(filename string, memStorage *MemStorage, storeInteval time.D
 		file:          file,
 		memStorage:    memStorage,
 		storeInterval: storeInteval,
-		saveSignal:    make(chan struct{}),
+		saveSignal:    saveSignal,
 	}
 
 	go fs.Saving()
 	return fs, nil
+}
+
+func (f *FileStorage) LoadMetrics() error {
+	data, err := os.ReadFile(f.file.Name())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var metricsCache map[string]*metrics.Metrics
+	if err := json.Unmarshal(data, &metricsCache); err != nil {
+		return err
+	}
+
+	for _, metric := range metricsCache {
+		f.memStorage.Update(metric)
+	}
+	return nil
 }
 
 func (f *FileStorage) SaveMetrics() error {
@@ -66,17 +87,27 @@ func (f *FileStorage) SaveMetrics() error {
 }
 
 func (f *FileStorage) Close() error {
-	if err := f.SaveMetrics(); err != nil {
-		logger.Sugar.Errorf("error when writing when closing: %v", err)
+	if f.file != nil {
+		if err := f.SaveMetrics(); err != nil {
+			logger.Sugar.Errorf("error when writing when closing: %v", err)
+			f.file.Close()
+			return err
+		}
+		err := f.file.Close()
+		f.file = nil
+		return err
 	}
-	return f.file.Close()
+
+	return nil
 }
 
 func (f *FileStorage) Saving() {
 	var ticker *time.Ticker
+	var tickerC <-chan time.Time
 	if f.storeInterval > 0 {
 		ticker = time.NewTicker(f.storeInterval)
 		defer ticker.Stop()
+		tickerC = ticker.C
 	}
 
 	for {
@@ -85,7 +116,7 @@ func (f *FileStorage) Saving() {
 			if err := f.SaveMetrics(); err != nil {
 				logger.Sugar.Errorf("error saving metrics: %v", err)
 			}
-		case <-ticker.C:
+		case <-tickerC:
 			if ticker != nil {
 				if err := f.SaveMetrics(); err != nil {
 					logger.Sugar.Errorf("error saving metrics: %v", err)
