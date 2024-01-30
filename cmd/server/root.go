@@ -41,24 +41,14 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Sugar.Fatalf("invalid bind address: %v", err)
 	}
 
-	var saveSignal chan struct{}
-	if cfg.StoreInterval == 0 {
-		saveSignal = make(chan struct{})
-	}
-
-	s := storage.NewMemStorage(saveSignal)
-	var fileStorage *storage.FileStorage
-	if cfg.FileStoragePath != "" {
-		fileStorage, err := storage.NewFileStorage(
-			cfg.FileStoragePath, s, cfg.StoreInterval, saveSignal)
+	var s storage.Storage
+	if cfg.FileStoragePath == "" {
+		s = storage.NewMemStorage()
+	} else {
+		var err error
+		s, err = storage.NewFileStorage(cfg.FileStoragePath)
 		if err != nil {
-			logger.Sugar.Fatalf("error initializing file storage: %v", err)
-		}
-		defer fileStorage.Close()
-		if cfg.Restore {
-			if err := fileStorage.LoadMetrics(); err != nil {
-				logger.Sugar.Errorf("error loading metrics: %v", err)
-			}
+			logger.Sugar.Fatalf("error initialize file storage")
 		}
 	}
 	quit := make(chan os.Signal, 1)
@@ -73,12 +63,6 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	<-quit
 	logger.Sugar.Info("shutting down server")
-
-	if fileStorage != nil {
-		if err := fileStorage.Close(); err != nil {
-			logger.Sugar.Errorf("error closing file storage: %v", err)
-		}
-	}
 }
 
 func validateAddress(addr string) error {

@@ -1,21 +1,18 @@
 package storage
 
 import (
-	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
 )
 
 type MemStorage struct {
-	metrics    map[string]*metrics.Metrics
-	mu         sync.RWMutex
-	saveSignal chan struct{}
+	metrics map[string]*metrics.Metrics
+	mu      sync.RWMutex
 }
 
-func NewMemStorage(saveSignal chan struct{}) *MemStorage {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		metrics:    make(map[string]*metrics.Metrics),
-		saveSignal: saveSignal,
+		metrics: make(map[string]*metrics.Metrics),
 	}
 }
 
@@ -40,14 +37,6 @@ func (m *MemStorage) Update(metric *metrics.Metrics) {
 		}
 	case "gauge":
 		m.metrics[metric.ID] = metric
-	}
-
-	if m.saveSignal != nil {
-		fmt.Println("start sync writing")
-		select {
-		case m.saveSignal <- struct{}{}:
-		default:
-		}
 	}
 }
 

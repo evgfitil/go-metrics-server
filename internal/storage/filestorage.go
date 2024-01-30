@@ -5,19 +5,14 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"os"
-	"sync"
-	"time"
 )
 
 type FileStorage struct {
-	file          *os.File
-	memStorage    *MemStorage
-	mu            sync.RWMutex
-	storeInterval time.Duration
-	saveSignal    chan struct{}
+	MemStorage
+	file *os.File
 }
 
-func NewFileStorage(filename string, memStorage *MemStorage, storeInteval time.Duration, saveSignal chan struct{}) (*FileStorage, error) {
+func NewFileStorage(filename string) (*FileStorage, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		logger.Sugar.Fatalf("error open file: %v", err)
@@ -25,13 +20,11 @@ func NewFileStorage(filename string, memStorage *MemStorage, storeInteval time.D
 	}
 
 	fs := &FileStorage{
-		file:          file,
-		memStorage:    memStorage,
-		storeInterval: storeInteval,
-		saveSignal:    saveSignal,
+		MemStorage: MemStorage{
+			metrics: make(map[string]*metrics.Metrics),
+		},
+		file: file,
 	}
-
-	go fs.Saving()
 	return fs, nil
 }
 
@@ -44,13 +37,12 @@ func (f *FileStorage) LoadMetrics() error {
 		return err
 	}
 
-	var metricsCache map[string]*metrics.Metrics
-	if err := json.Unmarshal(data, &metricsCache); err != nil {
+	if err = json.Unmarshal(data, &f.metrics); err != nil {
 		return err
 	}
 
-	for _, metric := range metricsCache {
-		f.memStorage.Update(metric)
+	for _, metric := range f.metrics {
+		f.Update(metric)
 	}
 	return nil
 }
@@ -67,7 +59,7 @@ func (f *FileStorage) SaveMetrics() error {
 		return err
 	}
 
-	metricsMap := f.memStorage.GetAllMetrics()
+	metricsMap := f.GetAllMetrics()
 	data, err := json.Marshal(metricsMap)
 	if err != nil {
 		logger.Sugar.Errorf("error marshaling: %v", err)
@@ -99,29 +91,4 @@ func (f *FileStorage) Close() error {
 	}
 
 	return nil
-}
-
-func (f *FileStorage) Saving() {
-	var ticker *time.Ticker
-	var tickerC <-chan time.Time
-	if f.storeInterval > 0 {
-		ticker = time.NewTicker(f.storeInterval)
-		defer ticker.Stop()
-		tickerC = ticker.C
-	}
-
-	for {
-		select {
-		case <-f.saveSignal:
-			if err := f.SaveMetrics(); err != nil {
-				logger.Sugar.Errorf("error saving metrics: %v", err)
-			}
-		case <-tickerC:
-			if ticker != nil {
-				if err := f.SaveMetrics(); err != nil {
-					logger.Sugar.Errorf("error saving metrics: %v", err)
-				}
-			}
-		}
-	}
 }

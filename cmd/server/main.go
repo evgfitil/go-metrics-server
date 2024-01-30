@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func MetricsRouter(s *storage.MemStorage) chi.Router {
+func MetricsRouter(s storage.Storage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Compress(5))
 	r.Get("/", handlers.GetAllMetrics(s))
