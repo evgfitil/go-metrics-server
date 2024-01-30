@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/caarlos0/env/v10"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/spf13/cobra"
@@ -33,25 +34,28 @@ var (
 )
 
 func runServer(cmd *cobra.Command, args []string) {
-	if err := validateAddress(cfg.bindAddress); err != nil {
+	if err := env.Parse(cfg); err != nil {
+		logger.Sugar.Fatalf("error to parse environment variables: %v", err)
+	}
+	if err := validateAddress(cfg.BindAddress); err != nil {
 		logger.Sugar.Fatalf("invalid bind address: %v", err)
 	}
 
 	var saveSignal chan struct{}
-	if cfg.storeInterval == 0 {
+	if cfg.StoreInterval == 0 {
 		saveSignal = make(chan struct{})
 	}
 
 	s := storage.NewMemStorage(saveSignal)
 	var fileStorage *storage.FileStorage
-	if cfg.fileStoragePath != "" {
+	if cfg.FileStoragePath != "" {
 		fileStorage, err := storage.NewFileStorage(
-			cfg.fileStoragePath, s, cfg.storeInterval, saveSignal)
+			cfg.FileStoragePath, s, cfg.StoreInterval, saveSignal)
 		if err != nil {
 			logger.Sugar.Fatalf("error initializing file storage: %v", err)
 		}
 		defer fileStorage.Close()
-		if cfg.restore {
+		if cfg.Restore {
 			if err := fileStorage.LoadMetrics(); err != nil {
 				logger.Sugar.Errorf("error loading metrics: %v", err)
 			}
@@ -61,7 +65,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		logger.Sugar.Infoln("starting server")
-		err := http.ListenAndServe(cfg.bindAddress, logger.WithLogging(MetricsRouter(s)))
+		err := http.ListenAndServe(cfg.BindAddress, logger.WithLogging(MetricsRouter(s)))
 		if err != nil {
 			logger.Sugar.Fatalf("error starting server: %v", err)
 		}
@@ -105,22 +109,13 @@ func Execute() error {
 
 func init() {
 	cfg = NewConfig()
-	if os.Getenv("ADDRESS") == "" {
-		rootCmd.Flags().StringVarP(
-			&cfg.bindAddress, "address", "a",
-			defaultBindAddress, "bind address for the server in the format host:port")
-	}
-	if os.Getenv("STORE_INTERVAL") == "" {
-		rootCmd.Flags().DurationVarP(
-			&cfg.storeInterval, "storeInterval", "i",
-			defaultStoreInterval, "interval in seconds for storage data to a file")
-	}
-	if os.Getenv("FILE_STORAGE_PATH") == "" {
-		rootCmd.Flags().StringVarP(&cfg.fileStoragePath, "fileStoragePath", "f",
-			defaultFileStoragePath, "file path where the server writes its data")
-	}
-	if os.Getenv("RESTORE") == "" {
-		rootCmd.Flags().BoolP("restore", "r", defaultRestore,
-			"loading previously saved data from a file at startup")
-	}
+	rootCmd.Flags().StringVarP(&cfg.BindAddress, "address", "a",
+		defaultBindAddress, "bind address for the server in the format host:port")
+	rootCmd.Flags().DurationVarP(
+		&cfg.StoreInterval, "StoreInterval", "i",
+		defaultStoreInterval, "interval in seconds for storage data to a file")
+	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "FileStoragePath", "f",
+		defaultFileStoragePath, "file path where the server writes its data")
+	rootCmd.Flags().BoolP("Restore", "r", defaultRestore,
+		"loading previously saved data from a file at startup")
 }
