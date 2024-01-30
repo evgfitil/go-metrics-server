@@ -13,12 +13,11 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 const (
 	defaultBindAddress     = "localhost:8080"
-	defaultStoreInterval   = 300 * time.Second
+	defaultStoreInterval   = 300
 	defaultFileStoragePath = "/tmp/metrics-db.json"
 	defaultRestore         = true
 )
@@ -33,6 +32,29 @@ var (
 	}
 )
 
+func initStorage() (storage.Storage, error) {
+	if cfg.FileStoragePath == "" {
+		return storage.NewMemStorage(), nil
+	}
+
+	s, err := storage.NewFileStorage(cfg.FileStoragePath, cfg.StoreInterval)
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Restore {
+		logger.Sugar.Infoln("starting restore metrics")
+		err = s.LoadMetrics()
+		if err != nil {
+			logger.Sugar.Errorf("error loading metrics: %v", err)
+		}
+	}
+	if cfg.StoreInterval > 0 {
+		s.AsyncSave()
+	}
+	return s, nil
+}
+
 func runServer(cmd *cobra.Command, args []string) {
 	if err := env.Parse(cfg); err != nil {
 		logger.Sugar.Fatalf("error to parse environment variables: %v", err)
@@ -41,16 +63,11 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Sugar.Fatalf("invalid bind address: %v", err)
 	}
 
-	var s storage.Storage
-	if cfg.FileStoragePath == "" {
-		s = storage.NewMemStorage()
-	} else {
-		var err error
-		s, err = storage.NewFileStorage(cfg.FileStoragePath)
-		if err != nil {
-			logger.Sugar.Fatalf("error initialize file storage")
-		}
+	s, err := initStorage()
+	if err != nil {
+		logger.Sugar.Fatalf("error initialize storage: %v", err)
 	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -93,13 +110,8 @@ func Execute() error {
 
 func init() {
 	cfg = NewConfig()
-	rootCmd.Flags().StringVarP(&cfg.BindAddress, "address", "a",
-		defaultBindAddress, "bind address for the server in the format host:port")
-	rootCmd.Flags().DurationVarP(
-		&cfg.StoreInterval, "StoreInterval", "i",
-		defaultStoreInterval, "interval in seconds for storage data to a file")
-	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "FileStoragePath", "f",
-		defaultFileStoragePath, "file path where the server writes its data")
-	rootCmd.Flags().BoolP("Restore", "r", defaultRestore,
-		"loading previously saved data from a file at startup")
+	rootCmd.Flags().StringVarP(&cfg.BindAddress, "address", "a", defaultBindAddress, "bind address for the server in the format host:port")
+	rootCmd.Flags().IntVarP(&cfg.StoreInterval, "store-interval", "i", defaultStoreInterval, "interval in seconds for storage data to a file")
+	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "file-storage-path", "f", defaultFileStoragePath, "file path where the server writes its data")
+	rootCmd.Flags().BoolVarP(&cfg.Restore, "restore", "r", defaultRestore, "loading previously saved data from a file at startup")
 }

@@ -5,14 +5,16 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"os"
+	"time"
 )
 
 type FileStorage struct {
 	MemStorage
-	file *os.File
+	file          *os.File
+	storeInterval int
 }
 
-func NewFileStorage(filename string) (*FileStorage, error) {
+func NewFileStorage(filename string, storeInterval int) (*FileStorage, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		logger.Sugar.Fatalf("error open file: %v", err)
@@ -23,7 +25,8 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 		MemStorage: MemStorage{
 			metrics: make(map[string]*metrics.Metrics),
 		},
-		file: file,
+		file:          file,
+		storeInterval: storeInterval,
 	}
 	return fs, nil
 }
@@ -37,20 +40,58 @@ func (f *FileStorage) LoadMetrics() error {
 		return err
 	}
 
-	if err = json.Unmarshal(data, &f.metrics); err != nil {
+	if len(data) == 0 {
+		logger.Sugar.Infoln("empty file, continue without loading saved data")
+		return nil
+	}
+
+	var loadedMetrics map[string]*metrics.Metrics
+	if err = json.Unmarshal(data, &loadedMetrics); err != nil {
+		logger.Sugar.Errorf("error reading metrics from file: %v", err)
 		return err
 	}
 
-	for _, metric := range f.metrics {
-		f.Update(metric)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for id, metric := range loadedMetrics {
+		f.metrics[id] = metric
 	}
 	return nil
 }
 
-func (f *FileStorage) SaveMetrics() error {
+func (f *FileStorage) Update(metric *metrics.Metrics) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	switch metric.MType {
+	case "counter":
+		if oldMetric, ok := f.metrics[metric.ID]; ok {
+			if oldDelta := oldMetric.Delta; oldDelta != nil {
+				newDelta := *metric.Delta + *oldDelta
+				newMetric := &metrics.Metrics{
+					ID:    metric.ID,
+					MType: metric.MType,
+					Delta: &newDelta,
+				}
+				f.metrics[metric.ID] = newMetric
+			}
+		} else {
+			f.metrics[metric.ID] = metric
+		}
+	case "gauge":
+		f.metrics[metric.ID] = metric
+	}
 
+	if f.storeInterval == 0 {
+		f.mu.Unlock()
+		err := f.SaveMetrics()
+		if err != nil {
+			logger.Sugar.Error("error write data")
+		}
+		f.mu.Lock()
+	}
+}
+
+func (f *FileStorage) SaveMetrics() error {
 	if err := f.file.Truncate(0); err != nil {
 		return err
 	}
@@ -76,6 +117,23 @@ func (f *FileStorage) SaveMetrics() error {
 	}
 
 	return nil
+}
+
+func (f *FileStorage) AsyncSave() {
+	go func() {
+		interval := time.Duration(f.storeInterval) * time.Second
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := f.SaveMetrics(); err != nil {
+					logger.Sugar.Errorf("error during async save: %v", err)
+				}
+			}
+		}
+	}()
 }
 
 func (f *FileStorage) Close() error {
