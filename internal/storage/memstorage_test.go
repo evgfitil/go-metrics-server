@@ -7,7 +7,7 @@ import (
 )
 
 func TestMemStorage(t *testing.T) {
-	storage := NewMemStorage(nil)
+	storage := NewMemStorage()
 	var testGaugeMetricValue float64
 	var testCounterMetricValue int64
 	testGaugeMetricValue = 46.4

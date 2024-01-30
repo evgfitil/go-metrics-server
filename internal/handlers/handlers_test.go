@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func testMetricsRouter(s *storage.MemStorage) chi.Router {
+func testMetricsRouter(s storage.Storage) chi.Router {
 	r := chi.NewRouter()
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", GetMetricsJSON(s))
@@ -28,7 +28,7 @@ func testMetricsRouter(s *storage.MemStorage) chi.Router {
 }
 
 func TestGetMetricsJsonHandler(t *testing.T) {
-	mockStorage := storage.NewMemStorage(nil)
+	mockStorage := storage.NewMemStorage()
 	testCounterValue := int64(100)
 	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &testCounterValue}
 	mockStorage.Update(&mockMetric)
@@ -106,7 +106,7 @@ func TestGetMetricsJsonHandler(t *testing.T) {
 }
 
 func TestUpdateMetricsJsonHandler(t *testing.T) {
-	mockStorage := storage.NewMemStorage(nil)
+	mockStorage := storage.NewMemStorage()
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))
 	defer ts.Close()
@@ -196,7 +196,7 @@ func TestUpdateMetricsJsonHandler(t *testing.T) {
 }
 
 func TestGetMetricsHandler(t *testing.T) {
-	mockStorage := storage.NewMemStorage(nil)
+	mockStorage := storage.NewMemStorage()
 	mockMetricValue := int64(100)
 	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &mockMetricValue}
 	mockStorage.Update(&mockMetric)
@@ -262,7 +262,7 @@ func TestGetMetricsHandler(t *testing.T) {
 }
 
 func TestUpdateMetricsHandler(t *testing.T) {
-	mockStorage := storage.NewMemStorage(nil)
+	mockStorage := storage.NewMemStorage()
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))
 	defer ts.Close()
