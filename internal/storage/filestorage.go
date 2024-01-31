@@ -125,12 +125,9 @@ func (f *FileStorage) AsyncSave() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				if err := f.SaveMetrics(); err != nil {
-					logger.Sugar.Errorf("error during async save: %v", err)
-				}
+		for range ticker.C {
+			if err := f.SaveMetrics(); err != nil {
+				logger.Sugar.Errorf("error during async save: %v", err)
 			}
 		}
 	}()
