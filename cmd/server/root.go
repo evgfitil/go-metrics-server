@@ -77,8 +77,10 @@ func runServer(cmd *cobra.Command, args []string) {
 			logger.Sugar.Fatalf("error starting server: %v", err)
 		}
 	}()
-
 	<-quit
+	if err = s.SaveMetrics(); err != nil {
+		logger.Sugar.Fatalf("error with saving metrics when server shutdown: %v", err)
+	}
 	logger.Sugar.Info("shutting down server")
 }
 

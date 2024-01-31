@@ -54,3 +54,7 @@ func (m *MemStorage) GetAllMetrics() map[string]*metrics.Metrics {
 
 	return m.metrics
 }
+
+func (m *MemStorage) SaveMetrics() error {
+	return nil
+}
