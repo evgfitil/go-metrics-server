@@ -25,7 +25,7 @@ const (
 var (
 	cfg     *Config
 	rootCmd = &cobra.Command{
-		Use:   "metrics-server",
+		Use:   "server",
 		Short: "A simple server for collecting and storing metrics",
 		Long:  `Metrics Server is a lightweight and easy-to-use solution for collecting and storing various metrics.`,
 		Run:   runServer,
