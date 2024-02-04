@@ -20,6 +20,7 @@ func MetricsRouter(s storage.Storage) chi.Router {
 		r.Post("/", handlers.UpdateMetricsJSON(s))
 		r.Post("/{type}/{name}/{value}", handlers.UpdateMetricsPlain(s))
 	})
+	r.Get("/ping/", handlers.Ping(s))
 	return r
 }
 

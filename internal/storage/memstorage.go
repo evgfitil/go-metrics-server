@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
 )
@@ -56,5 +57,9 @@ func (m *MemStorage) GetAllMetrics() map[string]*metrics.Metrics {
 }
 
 func (m *MemStorage) SaveMetrics() error {
+	return nil
+}
+
+func (m *MemStorage) Ping(ctx context.Context) error {
 	return nil
 }

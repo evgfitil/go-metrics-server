@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
@@ -145,5 +146,9 @@ func (f *FileStorage) Close() error {
 		return err
 	}
 
+	return nil
+}
+
+func (f *FileStorage) Ping(ctx context.Context) error {
 	return nil
 }

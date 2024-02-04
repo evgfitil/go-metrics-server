@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
@@ -13,6 +14,7 @@ type Storage interface {
 	Update(metric *metrics.Metrics)
 	Get(metricName string) (*metrics.Metrics, bool)
 	GetAllMetrics() map[string]*metrics.Metrics
+	Ping(ctx context.Context) error
 }
 
 func updateCounter(storage Storage, metricName string, metricValue int64) error {
@@ -208,5 +210,16 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusBadRequest)
 			return
 		}
+	}
+}
+
+func Ping(storage Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		err := storage.Ping(req.Context())
+		if err != nil {
+			http.Error(res, "database connection failed", http.StatusInternalServerError)
+			return
+		}
+		res.WriteHeader(http.StatusOK)
 	}
 }

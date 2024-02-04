@@ -33,10 +33,12 @@ var (
 )
 
 func initStorage() (storage.Storage, error) {
-	if cfg.FileStoragePath == "" {
+	switch {
+	case cfg.FileStoragePath == "":
 		return storage.NewMemStorage(), nil
+	case cfg.DatabaseDSN != "":
+		return storage.NewDBStorage(cfg.DatabaseDSN)
 	}
-
 	s, err := storage.NewFileStorage(cfg.FileStoragePath, cfg.StoreInterval)
 	if err != nil {
 		return nil, err
@@ -116,4 +118,5 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.StoreInterval, "store-interval", "i", defaultStoreInterval, "interval in seconds for storage data to a file")
 	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "file-storage-path", "f", defaultFileStoragePath, "file path where the server writes its data")
 	rootCmd.Flags().BoolVarP(&cfg.Restore, "restore", "r", defaultRestore, "loading previously saved data from a file at startup")
+	rootCmd.Flags().StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", "", "database connection string")
 }
