@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
@@ -31,7 +32,7 @@ func TestGetMetricsJsonHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
 	testCounterValue := int64(100)
 	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &testCounterValue}
-	mockStorage.Update(&mockMetric)
+	mockStorage.Update(context.TODO(), &mockMetric)
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))
 	defer ts.Close()
@@ -199,7 +200,7 @@ func TestGetMetricsHandler(t *testing.T) {
 	mockStorage := storage.NewMemStorage()
 	mockMetricValue := int64(100)
 	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &mockMetricValue}
-	mockStorage.Update(&mockMetric)
+	mockStorage.Update(context.TODO(), &mockMetric)
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))
 	defer ts.Close()

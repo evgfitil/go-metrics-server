@@ -13,7 +13,7 @@ import (
 
 type Storage interface {
 	Update(ctx context.Context, metric *metrics.Metrics)
-	Get(ctx context.Context, metricName string, metricType string) (*metrics.Metrics, bool)
+	Get(ctx context.Context, metricName, metricType string) (*metrics.Metrics, bool)
 	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
 	Ping(ctx context.Context) error
 }
