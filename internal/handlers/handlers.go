@@ -13,7 +13,7 @@ import (
 
 type Storage interface {
 	Update(ctx context.Context, metric *metrics.Metrics)
-	Get(ctx context.Context, metricName string) (*metrics.Metrics, bool)
+	Get(ctx context.Context, metricName string, metricType string) (*metrics.Metrics, bool)
 	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
 	Ping(ctx context.Context) error
 }
@@ -77,7 +77,7 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusNotFound)
 			return
 		}
-		metric, ok := storage.Get(requestContext, metricName)
+		metric, ok := storage.Get(requestContext, metricName, metricType)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
@@ -110,7 +110,7 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusNotFound)
 			return
 		}
-		metric, ok := storage.Get(requestContext, metricName)
+		metric, ok := storage.Get(requestContext, metricName, metricType)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
@@ -173,7 +173,7 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 			return
 		}
 
-		updateMetric, ok := storage.Get(requestContext, metricName)
+		updateMetric, ok := storage.Get(requestContext, metricName, metricType)
 		if !ok {
 			http.Error(res, "Error retrieving updated metric", http.StatusInternalServerError)
 			return

@@ -41,7 +41,7 @@ func (m *MemStorage) Update(_ context.Context, metric *metrics.Metrics) {
 	}
 }
 
-func (m *MemStorage) Get(_ context.Context, metricName string) (*metrics.Metrics, bool) {
+func (m *MemStorage) Get(_ context.Context, metricName string, _ string) (*metrics.Metrics, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

@@ -69,7 +69,7 @@ func (db *DBStorage) updateGauge(ctx context.Context, metric *metrics.Metrics) e
 	return err
 }
 
-func (db *DBStorage) Get(ctx context.Context, metricName string) (*metrics.Metrics, bool) {
+func (db *DBStorage) Get(ctx context.Context, metricName string, metricType string) (*metrics.Metrics, bool) {
 	return nil, false
 }
 
