@@ -8,32 +8,40 @@ import (
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type Storage interface {
-	Update(metric *metrics.Metrics)
-	Get(metricName string) (*metrics.Metrics, bool)
-	GetAllMetrics() map[string]*metrics.Metrics
+	Update(ctx context.Context, metric *metrics.Metrics)
+	Get(ctx context.Context, metricName string) (*metrics.Metrics, bool)
+	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
 	Ping(ctx context.Context) error
 }
 
-func updateCounter(storage Storage, metricName string, metricValue int64) error {
+const (
+	requestTimeout = 1 * time.Second
+)
+
+func updateCounter(ctx context.Context, storage Storage, metricName string, metricValue int64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &metricValue}
-	storage.Update(&metric)
+	storage.Update(ctx, &metric)
 	return nil
 }
 
-func updateGauge(storage Storage, metricName string, metricValue float64) error {
+func updateGauge(ctx context.Context, storage Storage, metricName string, metricValue float64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "gauge", Value: &metricValue}
-	storage.Update(&metric)
+	storage.Update(ctx, &metric)
 	return nil
 }
 
 func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
+
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(res, "<html><body>\n")
-		allMetrics := storage.GetAllMetrics()
+		allMetrics := storage.GetAllMetrics(requestContext)
 		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
@@ -48,6 +56,9 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 
 func GetMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
+
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
@@ -66,7 +77,7 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusNotFound)
 			return
 		}
-		metric, ok := storage.Get(metricName)
+		metric, ok := storage.Get(requestContext, metricName)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
@@ -85,6 +96,8 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 
 func GetMetricsPlain(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
 
 		if req.Method != http.MethodGet {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
@@ -97,7 +110,7 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 			http.Error(res, "Unsupported metric type", http.StatusNotFound)
 			return
 		}
-		metric, ok := storage.Get(metricName)
+		metric, ok := storage.Get(requestContext, metricName)
 		if !ok {
 			http.Error(res, "Metric not found", http.StatusNotFound)
 			return
@@ -112,6 +125,9 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 
 func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
+
 		if req.Header.Get("Content-Type") != "application/json" {
 			http.Error(res, "Invalid Content-type, expected 'application/json'", http.StatusUnsupportedMediaType)
 		}
@@ -138,7 +154,7 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 				http.Error(res, "Missing metric value", http.StatusBadRequest)
 				return
 			}
-			if err := updateCounter(storage, metricName, *metricValue); err != nil {
+			if err := updateCounter(requestContext, storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -148,7 +164,7 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 				http.Error(res, "Missing metric value", http.StatusBadRequest)
 				return
 			}
-			if err := updateGauge(storage, metricName, *metricValue); err != nil {
+			if err := updateGauge(requestContext, storage, metricName, *metricValue); err != nil {
 				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -157,7 +173,7 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 			return
 		}
 
-		updateMetric, ok := storage.Get(metricName)
+		updateMetric, ok := storage.Get(requestContext, metricName)
 		if !ok {
 			http.Error(res, "Error retrieving updated metric", http.StatusInternalServerError)
 			return
@@ -176,6 +192,9 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 
 func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
+
 		if req.Method != http.MethodPost {
 			http.Error(res, "Invalid request method", http.StatusBadRequest)
 			return
@@ -192,7 +211,7 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-			if err := updateCounter(storage, metricName, metricValue); err != nil {
+			if err := updateCounter(requestContext, storage, metricName, metricValue); err != nil {
 				http.Error(res, "Error updating counter: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -202,7 +221,7 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-			if err := updateGauge(storage, metricName, metricValue); err != nil {
+			if err := updateGauge(requestContext, storage, metricName, metricValue); err != nil {
 				http.Error(res, "Error updating gauge: "+err.Error(), http.StatusBadRequest)
 				return
 			}

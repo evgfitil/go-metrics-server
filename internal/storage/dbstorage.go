@@ -25,21 +25,33 @@ func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 	return &db, nil
 }
 
-func (d *DBStorage) Ping(ctx context.Context) error {
-	return d.connPool.PingContext(ctx)
+func (db *DBStorage) Ping(ctx context.Context) error {
+	return db.connPool.PingContext(ctx)
 }
 
-func (d *DBStorage) Update(metric *metrics.Metrics) {
+func (db *DBStorage) Update(ctx context.Context, metric *metrics.Metrics) {
+	switch metric.MType {
+	case "counter":
+		db.updateCounter(ctx, metric)
+	case "gauge":
+		db.updateGauge(ctx, metric)
+	}
 }
 
-func (d *DBStorage) Get(metricName string) (*metrics.Metrics, bool) {
+func (db *DBStorage) updateCounter(ctx context.Context, metric *metrics.Metrics) {
+}
+
+func (db *DBStorage) updateGauge(ctx context.Context, metric *metrics.Metrics) {
+}
+
+func (db *DBStorage) Get(ctx context.Context, metricName string) (*metrics.Metrics, bool) {
 	return nil, false
 }
 
-func (d *DBStorage) GetAllMetrics() map[string]*metrics.Metrics {
+func (db *DBStorage) GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics {
 	return nil
 }
 
-func (d *DBStorage) SaveMetrics() error {
+func (db *DBStorage) SaveMetrics(_ context.Context) error {
 	return nil
 }

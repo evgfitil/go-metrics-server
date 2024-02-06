@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/caarlos0/env/v10"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
@@ -80,7 +81,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		}
 	}()
 	<-quit
-	if err = s.SaveMetrics(); err != nil {
+	if err = s.SaveMetrics(context.TODO()); err != nil {
 		logger.Sugar.Fatalf("error with saving metrics when server shutdown: %v", err)
 	}
 	logger.Sugar.Info("shutting down server")

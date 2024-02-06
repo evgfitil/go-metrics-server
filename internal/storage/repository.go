@@ -6,9 +6,9 @@ import (
 )
 
 type Storage interface {
-	Update(metric *metrics.Metrics)
-	Get(metricName string) (*metrics.Metrics, bool)
-	GetAllMetrics() map[string]*metrics.Metrics
-	SaveMetrics() error
+	Update(ctx context.Context, metric *metrics.Metrics)
+	Get(ctx context.Context, metricName string) (*metrics.Metrics, bool)
+	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
+	SaveMetrics(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
