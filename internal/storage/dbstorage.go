@@ -70,10 +70,78 @@ func (db *DBStorage) updateGauge(ctx context.Context, metric *metrics.Metrics) e
 }
 
 func (db *DBStorage) Get(ctx context.Context, metricName string, metricType string) (*metrics.Metrics, bool) {
+	var metric metrics.Metrics
+	switch metricType {
+	case "counter":
+		metric.MType = "counter"
+		row := db.connPool.QueryRowContext(ctx, "SELECT id, delta FROM counter where id = $1", metricName)
+		err := row.Scan(&metric.ID, &metric.Delta)
+		if err != nil {
+			logger.Sugar.Errorf("error retrieving metric: %v", err)
+			return nil, false
+		}
+		return &metric, true
+	case "gauge":
+		metricType = "gauge"
+		row := db.connPool.QueryRowContext(ctx, "SELECT id, value FROM gauge where id = $1", metricName)
+		err := row.Scan(&metric.ID, &metric.Value)
+		if err != nil {
+			logger.Sugar.Errorf("error retrieving metric: %v", err)
+			return nil, false
+		}
+		return &metric, true
+	}
 	return nil, false
 }
 
 func (db *DBStorage) GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics {
+	allMetrics := make(map[string]*metrics.Metrics)
+	err := db.fetchCounterMetrics(ctx, allMetrics)
+	if err != nil {
+		logger.Sugar.Errorf("error retrieving counter metrics: %v", err)
+	}
+
+	err = db.fetchGaugeMetrics(ctx, allMetrics)
+	if err != nil {
+		logger.Sugar.Errorf("error retrieving gaguge metrics: %v", err)
+	}
+	return allMetrics
+}
+
+func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsMap map[string]*metrics.Metrics) error {
+	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM counter")
+
+	if err != nil && err != sql.ErrNoRows {
+		logger.Sugar.Errorf("error retrieving metrics: %v", err)
+	}
+	for rows.Next() {
+		var m metrics.Metrics
+		m.MType = "counter"
+		err = rows.Scan(&m.ID, &m.Delta)
+		if err != nil {
+			logger.Sugar.Errorf("error retrieving metric: %v", err)
+		}
+		metricsMap[m.ID] = &m
+	}
+	return nil
+}
+
+func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsMap map[string]*metrics.Metrics) error {
+	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM gauge")
+
+	if err != nil && err != sql.ErrNoRows {
+		logger.Sugar.Errorf("error retrieving metrics: %v", err)
+	}
+
+	for rows.Next() {
+		var m metrics.Metrics
+		m.MType = "gauge"
+		err = rows.Scan(&m.ID, &m.Value)
+		if err != nil {
+			logger.Sugar.Errorf("error retrieving metrics: %v", err)
+		}
+		metricsMap[m.ID] = &m
+	}
 	return nil
 }
 
