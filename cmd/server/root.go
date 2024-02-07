@@ -36,10 +36,13 @@ var (
 func initStorage() (storage.Storage, error) {
 	switch {
 	case cfg.FileStoragePath == "":
+		logger.Sugar.Infoln("initializing in-memory storage")
 		return storage.NewMemStorage(), nil
 	case cfg.DatabaseDSN != "":
+		logger.Sugar.Infoln("initializing db storage")
 		return storage.NewDBStorage(cfg.DatabaseDSN)
 	}
+	logger.Sugar.Infoln("initializing filestorage")
 	s, err := storage.NewFileStorage(cfg.FileStoragePath, cfg.StoreInterval)
 	if err != nil {
 		return nil, err
@@ -65,7 +68,6 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err := validateAddress(cfg.BindAddress); err != nil {
 		logger.Sugar.Fatalf("invalid bind address: %v", err)
 	}
-
 	s, err := initStorage()
 	if err != nil {
 		logger.Sugar.Fatalf("error initialize storage: %v", err)

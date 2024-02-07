@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS counter(
+    id VARCHAR (50) PRIMARY KEY,
+    delta BIGINT
+);

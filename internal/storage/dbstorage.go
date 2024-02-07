@@ -3,12 +3,19 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-const driverName = "pgx"
+const (
+	driverName    = "pgx"
+	migrationPath = "db/migrations"
+)
 
 type DBStorage struct {
 	connPool *sql.DB
@@ -17,9 +24,21 @@ type DBStorage struct {
 func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 	var db DBStorage
 	conn, err := sql.Open(driverName, databaseDSN)
+	defer conn.Close()
 	if err != nil {
 		logger.Sugar.Fatalf("unable to connect to database: %v", err)
 		return nil, err
+	}
+	m, err := migrate.New(fmt.Sprintf("file://%s", migrationPath), databaseDSN)
+	if err != nil {
+		logger.Sugar.Fatalf("error: %v", err)
+	}
+	err = m.Up()
+	if err == migrate.ErrNoChange {
+		logger.Sugar.Info("skipping migrations, no changes")
+	}
+	if err != nil && err != migrate.ErrNoChange {
+		logger.Sugar.Fatalf("error applying migrations: %v", err)
 	}
 	db = DBStorage{connPool: conn}
 	return &db, nil
