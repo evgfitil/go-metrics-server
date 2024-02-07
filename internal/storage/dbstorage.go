@@ -24,7 +24,6 @@ type DBStorage struct {
 func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 	var db DBStorage
 	conn, err := sql.Open(driverName, databaseDSN)
-	defer conn.Close()
 	if err != nil {
 		logger.Sugar.Fatalf("unable to connect to database: %v", err)
 		return nil, err
@@ -45,7 +44,12 @@ func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 }
 
 func (db *DBStorage) Ping(ctx context.Context) error {
-	return db.connPool.PingContext(ctx)
+	err := db.connPool.PingContext(ctx)
+	if err != nil {
+		logger.Sugar.Errorf("error connecting to database: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (db *DBStorage) Update(ctx context.Context, metric *metrics.Metrics) {
