@@ -137,6 +137,8 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsMap map[str
 	if err != nil && err != sql.ErrNoRows {
 		logger.Sugar.Errorf("error retrieving metrics: %v", err)
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var m metrics.Metrics
 		m.MType = "counter"
@@ -145,6 +147,10 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsMap map[str
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 		}
 		metricsMap[m.ID] = &m
+	}
+	if err = rows.Err(); err != nil {
+		logger.Sugar.Errorf("error after row iteration: %v", err)
+		return err
 	}
 	return nil
 }
@@ -155,6 +161,7 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsMap map[strin
 	if err != nil && err != sql.ErrNoRows {
 		logger.Sugar.Errorf("error retrieving metrics: %v", err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var m metrics.Metrics
@@ -164,6 +171,10 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsMap map[strin
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
 		}
 		metricsMap[m.ID] = &m
+	}
+	if err = rows.Err(); err != nil {
+		logger.Sugar.Errorf("error after row iteration: %v", err)
+		return err
 	}
 	return nil
 }
