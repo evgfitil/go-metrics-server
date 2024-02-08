@@ -153,6 +153,9 @@ func (f *FileStorage) Ping(_ context.Context) error {
 	return nil
 }
 
-func (f *FileStorage) UpdateMetrics(_ context.Context, metrics []*metrics.Metrics) error {
+func (f *FileStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error {
+	for _, metric := range metrics {
+		f.Update(ctx, metric)
+	}
 	return nil
 }
