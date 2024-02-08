@@ -114,6 +114,9 @@ func (db *DBStorage) Get(ctx context.Context, metricName string, metricType stri
 		metric.MType = "counter"
 		row := db.connPool.QueryRowContext(ctx, "SELECT id, delta FROM counter where id = $1", metricName)
 		err := row.Scan(&metric.ID, &metric.Delta)
+		if err == sql.ErrNoRows {
+			return nil, false
+		}
 		if err != nil {
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 			return nil, false
@@ -123,6 +126,10 @@ func (db *DBStorage) Get(ctx context.Context, metricName string, metricType stri
 		metricType = "gauge"
 		row := db.connPool.QueryRowContext(ctx, "SELECT id, value FROM gauge where id = $1", metricName)
 		err := row.Scan(&metric.ID, &metric.Value)
+
+		if err == sql.ErrNoRows {
+			return nil, false
+		}
 		if err != nil {
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 			return nil, false
@@ -199,6 +206,41 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsCache *metric
 	if err = rows.Err(); err != nil {
 		logger.Sugar.Errorf("error after row iteration: %v", err)
 	}
+}
+
+func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error {
+	tx, err := db.connPool.Begin()
+	if err != nil {
+		logger.Sugar.Errorln("error starting transaction: %v", err)
+	}
+
+	for _, metric := range metrics {
+		switch metric.MType {
+		case "counter":
+			currentMetric, ok := db.Get(ctx, metric.ID, metric.MType)
+			if !ok {
+				currentMetric = metric
+			} else {
+				*currentMetric.Delta += *metric.Delta
+			}
+			_, err = tx.ExecContext(ctx,
+				"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = $2",
+				currentMetric.ID, *currentMetric.Delta)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		case "gauge":
+			_, err = tx.ExecContext(ctx,
+				"INSERT INTO gauge (id, value) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET value = $2",
+				metric.ID, *metric.Value)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+	return tx.Commit()
 }
 
 func (db *DBStorage) SaveMetrics(_ context.Context) error {

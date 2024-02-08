@@ -63,3 +63,7 @@ func (m *MemStorage) SaveMetrics(_ context.Context) error {
 func (m *MemStorage) Ping(_ context.Context) error {
 	return nil
 }
+
+func (m *MemStorage) UpdateMetrics(_ context.Context, metrics []*metrics.Metrics) error {
+	return nil
+}

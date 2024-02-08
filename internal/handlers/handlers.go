@@ -12,10 +12,11 @@ import (
 )
 
 type Storage interface {
-	Update(ctx context.Context, metric *metrics.Metrics)
 	Get(ctx context.Context, metricName, metricType string) (*metrics.Metrics, bool)
 	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
 	Ping(ctx context.Context) error
+	Update(ctx context.Context, metric *metrics.Metrics)
+	UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error
 }
 
 const (
@@ -187,6 +188,29 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(jsonResponse)
+	}
+}
+
+func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
+		defer cancel()
+
+		if req.Method != http.MethodPost {
+			http.Error(res, "invalid request method", http.StatusBadRequest)
+			return
+		}
+
+		var incomingMetrics []*metrics.Metrics
+
+		if err := json.NewDecoder(req.Body).Decode(&incomingMetrics); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if err := storage.UpdateMetrics(requestContext, incomingMetrics); err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
 

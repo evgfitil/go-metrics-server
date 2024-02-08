@@ -152,3 +152,7 @@ func (f *FileStorage) Close() error {
 func (f *FileStorage) Ping(_ context.Context) error {
 	return nil
 }
+
+func (f *FileStorage) UpdateMetrics(_ context.Context, metrics []*metrics.Metrics) error {
+	return nil
+}

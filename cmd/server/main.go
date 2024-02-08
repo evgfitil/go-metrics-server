@@ -21,6 +21,7 @@ func MetricsRouter(s storage.Storage) chi.Router {
 		r.Post("/{type}/{name}/{value}", handlers.UpdateMetricsPlain(s))
 	})
 	r.Get("/ping", handlers.Ping(s))
+	r.Post("/updates/", handlers.UpdateMetricsCollection(s))
 	return r
 }
 
