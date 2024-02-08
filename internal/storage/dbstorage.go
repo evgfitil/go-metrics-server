@@ -10,12 +10,27 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"sync"
 )
 
 const (
 	driverName    = "pgx"
 	migrationPath = "db/migrations"
 )
+
+var wg sync.WaitGroup
+
+type metricsCache struct {
+	cache map[string]*metrics.Metrics
+	mu    sync.Mutex
+}
+
+func newMetricsCache() *metricsCache {
+	return &metricsCache{
+		cache: make(map[string]*metrics.Metrics),
+		mu:    sync.Mutex{},
+	}
+}
 
 type DBStorage struct {
 	connPool *sql.DB
@@ -118,26 +133,33 @@ func (db *DBStorage) Get(ctx context.Context, metricName string, metricType stri
 }
 
 func (db *DBStorage) GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics {
-	allMetrics := make(map[string]*metrics.Metrics)
-	err := db.fetchCounterMetrics(ctx, allMetrics)
-	if err != nil {
-		logger.Sugar.Errorf("error retrieving counter metrics: %v", err)
-	}
+	allMetrics := newMetricsCache()
 
-	err = db.fetchGaugeMetrics(ctx, allMetrics)
-	if err != nil {
-		logger.Sugar.Errorf("error retrieving gaguge metrics: %v", err)
-	}
-	return allMetrics
+	wg.Add(1)
+	go func() {
+		db.fetchCounterMetrics(ctx, allMetrics)
+	}()
+
+	wg.Add(1)
+	go func() {
+		db.fetchGaugeMetrics(ctx, allMetrics)
+	}()
+	wg.Wait()
+
+	return allMetrics.cache
 }
 
-func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsMap map[string]*metrics.Metrics) error {
-	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM counter")
+func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsCache *metricsCache) {
+	defer wg.Done()
 
+	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM counter")
 	if err != nil && err != sql.ErrNoRows {
 		logger.Sugar.Errorf("error retrieving metrics: %v", err)
 	}
 	defer rows.Close()
+
+	metricsCache.mu.Lock()
+	defer metricsCache.mu.Unlock()
 
 	for rows.Next() {
 		var m metrics.Metrics
@@ -146,22 +168,24 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsMap map[str
 		if err != nil {
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 		}
-		metricsMap[m.ID] = &m
+		metricsCache.cache[m.ID] = &m
 	}
 	if err = rows.Err(); err != nil {
 		logger.Sugar.Errorf("error after row iteration: %v", err)
-		return err
 	}
-	return nil
 }
 
-func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsMap map[string]*metrics.Metrics) error {
-	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM gauge")
+func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsCache *metricsCache) {
+	defer wg.Done()
 
+	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM gauge")
 	if err != nil && err != sql.ErrNoRows {
 		logger.Sugar.Errorf("error retrieving metrics: %v", err)
 	}
 	defer rows.Close()
+
+	metricsCache.mu.Lock()
+	defer metricsCache.mu.Unlock()
 
 	for rows.Next() {
 		var m metrics.Metrics
@@ -170,13 +194,11 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsMap map[strin
 		if err != nil {
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
 		}
-		metricsMap[m.ID] = &m
+		metricsCache.cache[m.ID] = &m
 	}
 	if err = rows.Err(); err != nil {
 		logger.Sugar.Errorf("error after row iteration: %v", err)
-		return err
 	}
-	return nil
 }
 
 func (db *DBStorage) SaveMetrics(_ context.Context) error {
