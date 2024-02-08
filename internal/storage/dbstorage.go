@@ -217,15 +217,9 @@ func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 	for _, metric := range metrics {
 		switch metric.MType {
 		case "counter":
-			currentMetric, ok := db.Get(ctx, metric.ID, metric.MType)
-			if !ok {
-				currentMetric = metric
-			} else {
-				*currentMetric.Delta += *metric.Delta
-			}
 			_, err = tx.ExecContext(ctx,
-				"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = $2",
-				currentMetric.ID, *currentMetric.Delta)
+				"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = counter.delta + EXCLUDED.delta",
+				metric.ID, *metric.Delta)
 			if err != nil {
 				tx.Rollback()
 				return err
