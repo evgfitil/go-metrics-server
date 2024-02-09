@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/go-resty/resty/v2"
-	"log"
 )
 
 func SendMetrics(metrics []MetricInterface, serverURL string) {
@@ -23,8 +22,27 @@ func SendMetrics(metrics []MetricInterface, serverURL string) {
 			Post(url)
 
 		if err != nil {
-			log.Println("error sending metric:", err)
+			logger.Sugar.Errorln("error sending metric: %v", err)
 			continue
 		}
+	}
+}
+
+func SendBatchMetrics(metrics []MetricInterface, serverURL string) {
+	sendingMetrics, err := json.Marshal(metrics)
+	if err != nil {
+		logger.Sugar.Errorln("error marshaling json: %v", err)
+	}
+	urlFormat := "/updates/"
+	url := serverURL + urlFormat
+
+	client := resty.New()
+	_, err = client.R().
+		SetHeader("Content-type", "application/json").
+		SetBody(sendingMetrics).
+		Post(url)
+
+	if err != nil {
+		logger.Sugar.Errorln("error sending metrics: %v", err)
 	}
 }

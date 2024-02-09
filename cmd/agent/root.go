@@ -18,6 +18,7 @@ const (
 	defaultServerAddress  = "localhost:8080"
 	defaultPollInterval   = 2
 	defaultReportInterval = 10
+	defaultBatchMode      = true
 )
 
 var (
@@ -63,7 +64,11 @@ func runAgent(cmd *cobra.Command, args []string) {
 			}
 
 			if now.Sub(lastReportTime) > reportInterval {
-				agentcore.SendMetrics(collectedMetrics, serverURL)
+				if !cfg.BatchMode {
+					agentcore.SendMetrics(collectedMetrics, serverURL)
+				} else {
+					agentcore.SendBatchMetrics(collectedMetrics, serverURL)
+				}
 				collectedMetrics = []agentcore.MetricInterface{}
 
 				lastReportTime = now
@@ -105,4 +110,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.ServerAddress, "address", "a", defaultServerAddress, "metrics server address in the format host:port")
 	rootCmd.Flags().IntVarP(&cfg.PollInterval, "poll-interval", "p", defaultPollInterval, "poll interval in seconds")
 	rootCmd.Flags().IntVarP(&cfg.ReportInterval, "report-interval", "r", defaultReportInterval, "report interval in seconds")
+	rootCmd.Flags().BoolVarP(&cfg.BatchMode, "batch-mode", "b", defaultBatchMode, "send batch of metrics")
 }
