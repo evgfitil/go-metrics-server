@@ -12,4 +12,5 @@ type Storage interface {
 	Update(ctx context.Context, metric *metrics.Metrics)
 	UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error
 	SaveMetrics(ctx context.Context) error
+	Close() error
 }

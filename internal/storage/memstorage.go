@@ -70,3 +70,7 @@ func (m *MemStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 	}
 	return nil
 }
+
+func (m *MemStorage) Close() error {
+	return nil
+}

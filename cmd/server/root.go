@@ -72,6 +72,11 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Sugar.Fatalf("error initialize storage: %v", err)
 	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			logger.Sugar.Errorf("error closing storage: %v", err)
+		}
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -83,6 +88,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		}
 	}()
 	<-quit
+
 	if err = s.SaveMetrics(context.TODO()); err != nil {
 		logger.Sugar.Fatalf("error with saving metrics when server shutdown: %v", err)
 	}

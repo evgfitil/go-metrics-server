@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
@@ -39,6 +40,7 @@ type DBStorage struct {
 func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 	var db DBStorage
 	conn, err := sql.Open(driverName, databaseDSN)
+
 	if err != nil {
 		logger.Sugar.Fatalf("unable to connect to database: %v", err)
 		return nil, err
@@ -48,14 +50,20 @@ func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 		logger.Sugar.Fatalf("error: %v", err)
 	}
 	err = m.Up()
-	if err == migrate.ErrNoChange {
-		logger.Sugar.Info("skipping migrations, no changes")
-	}
-	if err != nil && err != migrate.ErrNoChange {
-		logger.Sugar.Fatalf("error applying migrations: %v", err)
+	if err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			logger.Sugar.Infoln("skipping migrations, no changes")
+		} else {
+			logger.Sugar.Fatalf("error applying migrations: %v", err)
+			return nil, err
+		}
 	}
 	db = DBStorage{connPool: conn}
 	return &db, nil
+}
+
+func (db *DBStorage) Close() error {
+	return db.connPool.Close()
 }
 
 func (db *DBStorage) Ping(ctx context.Context) error {
@@ -213,7 +221,7 @@ func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 	if err != nil {
 		logger.Sugar.Errorln("error starting transaction: %v", err)
 	}
-
+	defer tx.Rollback()
 	for _, metric := range metrics {
 		switch metric.MType {
 		case "counter":
@@ -221,7 +229,6 @@ func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 				"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = counter.delta + EXCLUDED.delta",
 				metric.ID, *metric.Delta)
 			if err != nil {
-				tx.Rollback()
 				return err
 			}
 		case "gauge":
@@ -229,7 +236,6 @@ func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 				"INSERT INTO gauge (id, value) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET value = $2",
 				metric.ID, *metric.Value)
 			if err != nil {
-				tx.Rollback()
 				return err
 			}
 		}
