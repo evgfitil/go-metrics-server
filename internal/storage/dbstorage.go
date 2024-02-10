@@ -122,10 +122,10 @@ func (db *DBStorage) Get(ctx context.Context, metricName string, metricType stri
 		metric.MType = "counter"
 		row := db.connPool.QueryRowContext(ctx, "SELECT id, delta FROM counter where id = $1", metricName)
 		err := row.Scan(&metric.ID, &metric.Delta)
-		if err == sql.ErrNoRows {
-			return nil, false
-		}
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, false
+			}
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 			return nil, false
 		}
@@ -135,10 +135,10 @@ func (db *DBStorage) Get(ctx context.Context, metricName string, metricType stri
 		row := db.connPool.QueryRowContext(ctx, "SELECT id, value FROM gauge where id = $1", metricName)
 		err := row.Scan(&metric.ID, &metric.Value)
 
-		if err == sql.ErrNoRows {
-			return nil, false
-		}
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, false
+			}
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 			return nil, false
 		}
@@ -168,8 +168,10 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsCache *metr
 	defer wg.Done()
 
 	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM counter")
-	if err != nil && err != sql.ErrNoRows {
-		logger.Sugar.Errorf("error retrieving metrics: %v", err)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			logger.Sugar.Errorf("error retrieving metrics: %v", err)
+		}
 	}
 	defer rows.Close()
 
@@ -194,8 +196,10 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsCache *metric
 	defer wg.Done()
 
 	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM gauge")
-	if err != nil && err != sql.ErrNoRows {
-		logger.Sugar.Errorf("error retrieving metrics: %v", err)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			logger.Sugar.Errorf("error retrieving metrics: %v", err)
+		}
 	}
 	defer rows.Close()
 
