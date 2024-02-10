@@ -10,6 +10,8 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"sync"
 )
@@ -95,7 +97,7 @@ func (db *DBStorage) updateCounter(ctx context.Context, metric *metrics.Metrics)
 
 	row := db.connPool.QueryRowContext(ctx, "SELECT delta FROM counter WHERE id = $1", metric.ID)
 	err := row.Scan(&currentDelta)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	if currentDelta != nil {
@@ -117,34 +119,38 @@ func (db *DBStorage) updateGauge(ctx context.Context, metric *metrics.Metrics) e
 
 func (db *DBStorage) Get(ctx context.Context, metricName string, metricType string) (*metrics.Metrics, bool) {
 	var metric metrics.Metrics
+	var err error
+
 	switch metricType {
 	case "counter":
 		metric.MType = "counter"
-		row := db.connPool.QueryRowContext(ctx, "SELECT id, delta FROM counter where id = $1", metricName)
-		err := row.Scan(&metric.ID, &metric.Delta)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, false
-			}
-			logger.Sugar.Errorf("error retrieving metric: %v", err)
-			return nil, false
-		}
-		return &metric, true
+		row := db.connPool.QueryRowContext(ctx, "SELECT id, delta FROM counter WHERE id = $1", metricName)
+		err = row.Scan(&metric.ID, &metric.Delta)
 	case "gauge":
-		metricType = "gauge"
-		row := db.connPool.QueryRowContext(ctx, "SELECT id, value FROM gauge where id = $1", metricName)
-		err := row.Scan(&metric.ID, &metric.Value)
+		metric.MType = "gauge"
+		row := db.connPool.QueryRowContext(ctx, "SELECT id, value FROM gauge WHERE id = $1", metricName)
+		err = row.Scan(&metric.ID, &metric.Value)
+	}
 
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.ConnectionException {
+				logger.Sugar.Errorf("error retrieving metric due to connection exception: %v", err)
+				return nil, false
+			} else {
+				logger.Sugar.Errorf("error retrieving metric: %v", err)
 				return nil, false
 			}
+		} else if errors.Is(err, sql.ErrNoRows) {
+			return nil, false
+		} else {
 			logger.Sugar.Errorf("error retrieving metric: %v", err)
 			return nil, false
 		}
-		return &metric, true
 	}
-	return nil, false
+
+	return &metric, true
 }
 
 func (db *DBStorage) GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics {

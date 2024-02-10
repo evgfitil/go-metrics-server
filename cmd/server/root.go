@@ -73,7 +73,7 @@ func runServer(cmd *cobra.Command, args []string) {
 		logger.Sugar.Fatalf("error initialize storage: %v", err)
 	}
 	defer func() {
-		if err := s.Close(); err != nil {
+		if err = s.Close(); err != nil {
 			logger.Sugar.Errorf("error closing storage: %v", err)
 		}
 	}()
