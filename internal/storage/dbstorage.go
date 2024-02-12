@@ -59,6 +59,8 @@ func NewDBStorage(databaseDSN string) (*DBStorage, error) {
 			logger.Sugar.Fatalf("error applying migrations: %v", err)
 			return nil, err
 		}
+	} else {
+		logger.Sugar.Infoln("migrations applied successfully")
 	}
 	db = DBStorage{connPool: conn}
 	return &db, nil
