@@ -95,21 +95,8 @@ func (db *DBStorage) Update(ctx context.Context, metric *metrics.Metrics) {
 }
 
 func (db *DBStorage) updateCounter(ctx context.Context, metric *metrics.Metrics) error {
-	var currentDelta *int64
-
-	row := db.connPool.QueryRowContext(ctx, "SELECT delta FROM counter WHERE id = $1", metric.ID)
-	err := row.Scan(&currentDelta)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	if currentDelta != nil {
-		*currentDelta += *metric.Delta
-	} else {
-		currentDelta = metric.Delta
-	}
-
-	_, err = db.connPool.ExecContext(ctx,
-		"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = $2", metric.ID, *currentDelta)
+	_, err := db.connPool.ExecContext(ctx,
+		"INSERT INTO counter (id, delta) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET delta = counter.delta + EXCLUDED.delta", metric.ID, *metric.Delta)
 	return err
 }
 
@@ -175,7 +162,7 @@ func (db *DBStorage) GetAllMetrics(ctx context.Context) map[string]*metrics.Metr
 func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsCache *metricsCache) {
 	defer wg.Done()
 
-	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM counter")
+	rows, err := db.connPool.QueryContext(ctx, "SELECT id, delta FROM counter")
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
@@ -203,7 +190,7 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsCache *metr
 func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsCache *metricsCache) {
 	defer wg.Done()
 
-	rows, err := db.connPool.QueryContext(ctx, "SELECT * FROM gauge")
+	rows, err := db.connPool.QueryContext(ctx, "SELECT id, value FROM gauge")
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
