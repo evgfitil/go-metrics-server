@@ -60,10 +60,6 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
 
-		if req.Method != http.MethodPost {
-			http.Error(res, "Invalid request method", http.StatusBadRequest)
-			return
-		}
 		var requestMetric metrics.Metrics
 
 		if err := json.NewDecoder(req.Body).Decode(&requestMetric); err != nil {
@@ -100,10 +96,6 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
 
-		if req.Method != http.MethodGet {
-			http.Error(res, "Invalid request method", http.StatusBadRequest)
-			return
-		}
 		metricName := chi.URLParam(req, "name")
 		metricType := chi.URLParam(req, "type")
 
@@ -131,11 +123,6 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 
 		if req.Header.Get("Content-Type") != "application/json" {
 			http.Error(res, "Invalid Content-type, expected 'application/json'", http.StatusUnsupportedMediaType)
-		}
-
-		if req.Method != http.MethodPost {
-			http.Error(res, "Invalid request method", http.StatusBadRequest)
-			return
 		}
 
 		var incomingMetric metrics.Metrics
@@ -196,11 +183,6 @@ func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
 
-		if req.Method != http.MethodPost {
-			http.Error(res, "invalid request method", http.StatusBadRequest)
-			return
-		}
-
 		var incomingMetrics []*metrics.Metrics
 
 		if err := json.NewDecoder(req.Body).Decode(&incomingMetrics); err != nil {
@@ -218,11 +200,6 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
-
-		if req.Method != http.MethodPost {
-			http.Error(res, "Invalid request method", http.StatusBadRequest)
-			return
-		}
 
 		metricType := chi.URLParam(req, "type")
 		metricName := chi.URLParam(req, "name")
