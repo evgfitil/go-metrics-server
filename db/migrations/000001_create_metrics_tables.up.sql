@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS counter(
+    id TEXT PRIMARY KEY,
+    delta BIGINT
+);
+CREATE TABLE IF NOT EXISTS gauge(
+    id TEXT PRIMARY KEY,
+    value DOUBLE PRECISION
+);

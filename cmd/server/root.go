@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/caarlos0/env/v10"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
@@ -33,10 +34,15 @@ var (
 )
 
 func initStorage() (storage.Storage, error) {
-	if cfg.FileStoragePath == "" {
+	switch {
+	case cfg.FileStoragePath == "":
+		logger.Sugar.Infoln("initializing in-memory storage")
 		return storage.NewMemStorage(), nil
+	case cfg.DatabaseDSN != "":
+		logger.Sugar.Infoln("initializing db storage")
+		return storage.NewDBStorage(cfg.DatabaseDSN)
 	}
-
+	logger.Sugar.Infoln("initializing filestorage")
 	s, err := storage.NewFileStorage(cfg.FileStoragePath, cfg.StoreInterval)
 	if err != nil {
 		return nil, err
@@ -62,11 +68,15 @@ func runServer(cmd *cobra.Command, args []string) {
 	if err := validateAddress(cfg.BindAddress); err != nil {
 		logger.Sugar.Fatalf("invalid bind address: %v", err)
 	}
-
 	s, err := initStorage()
 	if err != nil {
 		logger.Sugar.Fatalf("error initialize storage: %v", err)
 	}
+	defer func() {
+		if err = s.Close(); err != nil {
+			logger.Sugar.Errorf("error closing storage: %v", err)
+		}
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -78,7 +88,8 @@ func runServer(cmd *cobra.Command, args []string) {
 		}
 	}()
 	<-quit
-	if err = s.SaveMetrics(); err != nil {
+
+	if err = s.SaveMetrics(context.TODO()); err != nil {
 		logger.Sugar.Fatalf("error with saving metrics when server shutdown: %v", err)
 	}
 	logger.Sugar.Info("shutting down server")
@@ -116,4 +127,5 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.StoreInterval, "store-interval", "i", defaultStoreInterval, "interval in seconds for storage data to a file")
 	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "file-storage-path", "f", defaultFileStoragePath, "file path where the server writes its data")
 	rootCmd.Flags().BoolVarP(&cfg.Restore, "restore", "r", defaultRestore, "loading previously saved data from a file at startup")
+	rootCmd.Flags().StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", "", "database connection string")
 }

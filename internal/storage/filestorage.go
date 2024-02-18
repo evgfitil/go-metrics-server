@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
@@ -59,7 +60,7 @@ func (f *FileStorage) LoadMetrics() error {
 	return nil
 }
 
-func (f *FileStorage) Update(metric *metrics.Metrics) {
+func (f *FileStorage) Update(ctx context.Context, metric *metrics.Metrics) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch metric.MType {
@@ -83,7 +84,7 @@ func (f *FileStorage) Update(metric *metrics.Metrics) {
 
 	if f.storeInterval == 0 {
 		f.mu.Unlock()
-		err := f.SaveMetrics()
+		err := f.SaveMetrics(ctx)
 		if err != nil {
 			logger.Sugar.Error("error write data")
 		}
@@ -91,7 +92,7 @@ func (f *FileStorage) Update(metric *metrics.Metrics) {
 	}
 }
 
-func (f *FileStorage) SaveMetrics() error {
+func (f *FileStorage) SaveMetrics(ctx context.Context) error {
 	if err := f.file.Truncate(0); err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func (f *FileStorage) SaveMetrics() error {
 		return err
 	}
 
-	metricsMap := f.GetAllMetrics()
+	metricsMap := f.GetAllMetrics(ctx)
 	data, err := json.Marshal(metricsMap)
 	if err != nil {
 		logger.Sugar.Errorf("error marshaling: %v", err)
@@ -126,7 +127,7 @@ func (f *FileStorage) AsyncSave() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if err := f.SaveMetrics(); err != nil {
+			if err := f.SaveMetrics(context.TODO()); err != nil {
 				logger.Sugar.Errorf("error during async save: %v", err)
 			}
 		}
@@ -135,7 +136,7 @@ func (f *FileStorage) AsyncSave() {
 
 func (f *FileStorage) Close() error {
 	if f.file != nil {
-		if err := f.SaveMetrics(); err != nil {
+		if err := f.SaveMetrics(context.TODO()); err != nil {
 			logger.Sugar.Errorf("error when writing when closing: %v", err)
 			f.file.Close()
 			return err
@@ -145,5 +146,16 @@ func (f *FileStorage) Close() error {
 		return err
 	}
 
+	return nil
+}
+
+func (f *FileStorage) Ping(_ context.Context) error {
+	return nil
+}
+
+func (f *FileStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error {
+	for _, metric := range metrics {
+		f.Update(ctx, metric)
+	}
 	return nil
 }

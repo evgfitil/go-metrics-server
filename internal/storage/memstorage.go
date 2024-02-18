@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
 )
@@ -16,7 +17,7 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (m *MemStorage) Update(metric *metrics.Metrics) {
+func (m *MemStorage) Update(_ context.Context, metric *metrics.Metrics) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -40,7 +41,7 @@ func (m *MemStorage) Update(metric *metrics.Metrics) {
 	}
 }
 
-func (m *MemStorage) Get(metricName string) (*metrics.Metrics, bool) {
+func (m *MemStorage) Get(_ context.Context, metricName string, _ string) (*metrics.Metrics, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -48,13 +49,28 @@ func (m *MemStorage) Get(metricName string) (*metrics.Metrics, bool) {
 	return metric, ok
 }
 
-func (m *MemStorage) GetAllMetrics() map[string]*metrics.Metrics {
+func (m *MemStorage) GetAllMetrics(_ context.Context) map[string]*metrics.Metrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	return m.metrics
 }
 
-func (m *MemStorage) SaveMetrics() error {
+func (m *MemStorage) SaveMetrics(_ context.Context) error {
+	return nil
+}
+
+func (m *MemStorage) Ping(_ context.Context) error {
+	return nil
+}
+
+func (m *MemStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error {
+	for _, metric := range metrics {
+		m.Update(ctx, metric)
+	}
+	return nil
+}
+
+func (m *MemStorage) Close() error {
 	return nil
 }

@@ -1,9 +1,10 @@
 package main
 
 type Config struct {
-	ServerAddress  string `env:"ADDRESS"`
+	BatchMode      bool   `env:"BATCH_MODE"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
+	ServerAddress  string `env:"ADDRESS"`
 	UseHTTPS       bool   `env:"USE_HTTPS"`
 }
 
