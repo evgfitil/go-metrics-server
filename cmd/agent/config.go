@@ -5,6 +5,7 @@ type Config struct {
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	ServerAddress  string `env:"ADDRESS"`
+	SecretKey      string `env:"KEY"`
 	UseHTTPS       bool   `env:"USE_HTTPS"`
 }
 
