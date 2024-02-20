@@ -30,14 +30,14 @@ func SendMetrics(key string, metrics []MetricInterface, serverURL string) {
 			SetRetryCount(retryCount).
 			SetRetryWaitTime(retryWait).
 			SetRetryMaxWaitTime(retryMaxWaitTime)
-		resp := client.R().
+		req := client.R().
 			SetHeader("Content-type", "application/json").
 			SetBody(sendingMetric)
 		if key != "" {
 			hash := computeHash(key, sendingMetric)
-			client.R().SetHeader("HashSHA256", hash)
+			req.SetHeader("HashSHA256", hash)
 		}
-		_, err = resp.Post(url)
+		_, err = req.Post(url)
 		if err != nil {
 			logger.Sugar.Errorln("error sending metric: %v", err)
 			continue
@@ -58,14 +58,14 @@ func SendBatchMetrics(key string, metrics []MetricInterface, serverURL string) {
 		SetRetryCount(retryCount).
 		SetRetryWaitTime(retryWait).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
-	resp := client.R().
+	req := client.R().
 		SetHeader("Content-type", "application/json").
 		SetBody(sendingMetrics)
 	if key != "" {
 		hash := computeHash(key, sendingMetrics)
-		client.R().SetHeader("HashSHA256", hash)
+		req.SetHeader("HashSHA256", hash)
 	}
-	_, err = resp.Post(url)
+	_, err = req.Post(url)
 
 	if err != nil {
 		logger.Sugar.Errorf("error sending metrics: %v", err)

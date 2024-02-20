@@ -19,6 +19,10 @@ type Storage interface {
 	UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error
 }
 
+type response struct {
+	Message string `json:"Message"`
+}
+
 const (
 	requestTimeout = 1 * time.Second
 )
@@ -193,6 +197,16 @@ func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 		if err := storage.UpdateMetrics(requestContext, incomingMetrics); err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 		}
+
+		resp := &response{Message: "Metrics updated successfully"}
+		jsonResponse, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(res, "error marshaling response JSON", http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		res.Write(jsonResponse)
 	}
 }
 
