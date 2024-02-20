@@ -11,6 +11,8 @@ import (
 func MetricsRouter(s storage.Storage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Compress(5))
+	r.Use(handlers.VerifyRequestHash(cfg.SecretKey))
+	r.Use(handlers.WithResponseHash(cfg.SecretKey))
 	r.Get("/", handlers.GetAllMetrics(s))
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", handlers.GetMetricsJSON(s))

@@ -1,7 +1,10 @@
 package agentcore
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/go-resty/resty/v2"
 	"time"
@@ -13,7 +16,7 @@ const (
 	retryMaxWaitTime = 5 * time.Second
 )
 
-func SendMetrics(metrics []MetricInterface, serverURL string) {
+func SendMetrics(key string, metrics []MetricInterface, serverURL string) {
 	for _, metric := range metrics {
 		sendingMetric, err := json.Marshal(metric)
 		if err != nil {
@@ -27,11 +30,14 @@ func SendMetrics(metrics []MetricInterface, serverURL string) {
 			SetRetryCount(retryCount).
 			SetRetryWaitTime(retryWait).
 			SetRetryMaxWaitTime(retryMaxWaitTime)
-		_, err = client.R().
+		req := client.R().
 			SetHeader("Content-type", "application/json").
-			SetBody(sendingMetric).
-			Post(url)
-
+			SetBody(sendingMetric)
+		if key != "" {
+			hash := computeHash(key, sendingMetric)
+			req.SetHeader("HashSHA256", hash)
+		}
+		_, err = req.Post(url)
 		if err != nil {
 			logger.Sugar.Errorln("error sending metric: %v", err)
 			continue
@@ -39,7 +45,7 @@ func SendMetrics(metrics []MetricInterface, serverURL string) {
 	}
 }
 
-func SendBatchMetrics(metrics []MetricInterface, serverURL string) {
+func SendBatchMetrics(key string, metrics []MetricInterface, serverURL string) {
 	sendingMetrics, err := json.Marshal(metrics)
 	if err != nil {
 		logger.Sugar.Errorln("error marshaling json: %v", err)
@@ -52,12 +58,24 @@ func SendBatchMetrics(metrics []MetricInterface, serverURL string) {
 		SetRetryCount(retryCount).
 		SetRetryWaitTime(retryWait).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
-	_, err = client.R().
+	req := client.R().
 		SetHeader("Content-type", "application/json").
-		SetBody(sendingMetrics).
-		Post(url)
+		SetBody(sendingMetrics)
+	if key != "" {
+		hash := computeHash(key, sendingMetrics)
+		req.SetHeader("HashSHA256", hash)
+	}
+	_, err = req.Post(url)
 
 	if err != nil {
 		logger.Sugar.Errorf("error sending metrics: %v", err)
 	}
+}
+
+func computeHash(key string, data []byte) string {
+	secretKey := []byte(key)
+	h := hmac.New(sha256.New, secretKey)
+	h.Write(data)
+	dst := h.Sum(nil)
+	return fmt.Sprintf("%x", dst)
 }

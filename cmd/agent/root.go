@@ -65,9 +65,9 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 			if now.Sub(lastReportTime) > reportInterval {
 				if !cfg.BatchMode {
-					agentcore.SendMetrics(collectedMetrics, serverURL)
+					agentcore.SendMetrics(cfg.SecretKey, collectedMetrics, serverURL)
 				} else {
-					agentcore.SendBatchMetrics(collectedMetrics, serverURL)
+					agentcore.SendBatchMetrics(cfg.SecretKey, collectedMetrics, serverURL)
 				}
 				collectedMetrics = []agentcore.MetricInterface{}
 
@@ -111,4 +111,5 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.PollInterval, "poll-interval", "p", defaultPollInterval, "poll interval in seconds")
 	rootCmd.Flags().IntVarP(&cfg.ReportInterval, "report-interval", "r", defaultReportInterval, "report interval in seconds")
 	rootCmd.Flags().BoolVarP(&cfg.BatchMode, "batch-mode", "b", defaultBatchMode, "send batch of metrics")
+	rootCmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", "", "data secret key")
 }

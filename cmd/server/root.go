@@ -128,4 +128,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "file-storage-path", "f", defaultFileStoragePath, "file path where the server writes its data")
 	rootCmd.Flags().BoolVarP(&cfg.Restore, "restore", "r", defaultRestore, "loading previously saved data from a file at startup")
 	rootCmd.Flags().StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", "", "database connection string")
+	rootCmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", "", "data secret key")
 }
