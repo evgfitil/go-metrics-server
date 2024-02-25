@@ -4,6 +4,7 @@ type Config struct {
 	BatchMode      bool   `env:"BATCH_MODE"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
+	RateLimit      int    `env:"RATE_LIMIT"`
 	ServerAddress  string `env:"ADDRESS"`
 	SecretKey      string `env:"KEY"`
 	UseHTTPS       bool   `env:"USE_HTTPS"`
