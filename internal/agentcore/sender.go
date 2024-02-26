@@ -30,6 +30,12 @@ func newMetricsCache() *metricsCache {
 	}
 }
 
+type sendTask struct {
+	metrics   []metrics.Metrics
+	serverURL string
+	key       string
+}
+
 func (mc *metricsCache) Update(metric metrics.Metrics) bool {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -69,7 +75,7 @@ func (mc *metricsCache) ResetCounters() {
 	}
 }
 
-func SendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
+func sendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 	for _, metric := range metrics {
 		sendingMetric, err := json.Marshal(metric)
 		if err != nil {
@@ -98,7 +104,7 @@ func SendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 	}
 }
 
-func SendBatchMetrics(key string, metrics []metrics.Metrics, serverURL string) {
+func sendBatchMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 	sendingMetrics, err := json.Marshal(metrics)
 	if err != nil {
 		logger.Sugar.Errorln("error marshaling json: %v", err)
@@ -133,11 +139,41 @@ func computeHash(key string, data []byte) string {
 	return fmt.Sprintf("%x", dst)
 }
 
+func runWorkers(workersCount int, tasksChan <-chan sendTask, batchMode bool) {
+	for i := 0; i < workersCount; i++ {
+		go func() {
+			for task := range tasksChan {
+				if batchMode {
+					sendBatchMetrics(task.key, task.metrics, task.serverURL)
+				} else {
+					sendMetrics(task.key, task.metrics, task.serverURL)
+				}
+			}
+		}()
+	}
+}
+
+func splitBatch(batch []metrics.Metrics, workersCount int) [][]metrics.Metrics {
+	var batches [][]metrics.Metrics
+
+	batchSize := (len(batch) + workersCount - 1) / workersCount
+	for i := 0; i < len(batch); i += batchSize {
+		end := i + batchSize
+		if end > len(batch) {
+			end = len(batch)
+		}
+		batches = append(batches, batch[i:end])
+	}
+	return batches
+}
+
 func StartSender(metricsChan <-chan []metrics.Metrics, serverURL string, reportInterval time.Duration, batchMode bool, key string, rateLimit int) {
 	cache := newMetricsCache()
 	var metricsBatch []metrics.Metrics
 	uniqueIDs := make(map[string]struct{})
+	tasksChan := make(chan sendTask, 100)
 
+	runWorkers(rateLimit, tasksChan, batchMode)
 	ticker := time.NewTicker(reportInterval)
 	defer ticker.Stop()
 
@@ -152,11 +188,11 @@ func StartSender(metricsChan <-chan []metrics.Metrics, serverURL string, reportI
 				}
 			}
 		case <-ticker.C:
-			if batchMode && len(metricsBatch) > 0 {
-				SendBatchMetrics(key, metricsBatch, serverURL)
-			}
-			if !batchMode && len(metricsBatch) > 0 {
-				SendMetrics(key, metricsBatch, serverURL)
+			if len(metricsBatch) > 0 {
+				batches := splitBatch(metricsBatch, rateLimit)
+				for _, batch := range batches {
+					tasksChan <- sendTask{metrics: batch, serverURL: serverURL, key: key}
+				}
 			}
 			cache.ResetCounters()
 			metricsBatch = []metrics.Metrics{}
