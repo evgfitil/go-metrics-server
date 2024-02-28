@@ -101,6 +101,7 @@ func aggregateChannels(channels ...<-chan []metrics.Metrics) <-chan []metrics.Me
 }
 
 func StartCollector(metricsChan chan<- []metrics.Metrics, pollInterval time.Duration) {
+	var wg sync.WaitGroup
 	pollCollectorChan := make(chan []metrics.Metrics)
 	runtimeCollectorChan := make(chan []metrics.Metrics)
 	systemCollectorChan := make(chan []metrics.Metrics)
@@ -110,19 +111,24 @@ func StartCollector(metricsChan chan<- []metrics.Metrics, pollInterval time.Dura
 		defer ticker.Stop()
 
 		for range ticker.C {
+			wg.Add(3)
 
 			go func() {
 				pollCollectorChan <- []metrics.Metrics{metrics.NewCounter("PollCount", 1)}
+				wg.Done()
 			}()
 
 			go func() {
 				runtime.ReadMemStats(&memStats)
 				runtimeCollectorChan <- collectRuntimeMetrics(&memStats)
+				wg.Done()
 			}()
 
 			go func() {
 				systemCollectorChan <- collectSystemMetrics()
+				wg.Done()
 			}()
+			wg.Wait()
 		}
 	}()
 
