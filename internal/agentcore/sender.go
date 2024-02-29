@@ -18,6 +18,20 @@ const (
 	retryMaxWaitTime = 5 * time.Second
 )
 
+type metricsBatch struct {
+	batch  []metrics.Metrics
+	unique map[string]struct{}
+	mu     sync.Mutex
+}
+
+func newMetricsBatch() *metricsBatch {
+	return &metricsBatch{
+		batch:  make([]metrics.Metrics, 0),
+		unique: make(map[string]struct{}),
+		mu:     sync.Mutex{},
+	}
+}
+
 type metricsCache struct {
 	cache map[string]*metrics.Metrics
 	mu    sync.Mutex
@@ -43,9 +57,15 @@ func (mc *metricsCache) Update(metric metrics.Metrics) bool {
 	currentMetric, ok := mc.cache[metric.ID]
 	switch metric.MType {
 	case "gauge":
-		if !ok || currentMetric.Value != metric.Value {
+		if !ok {
 			mc.cache[metric.ID] = &metric
 			return true
+		}
+		if currentMetric.Value != nil && metric.Value != nil {
+			if *currentMetric.Value != *metric.Value {
+				mc.cache[metric.ID] = &metric
+				return true
+			}
 		}
 	case "counter":
 		if !ok {
@@ -169,34 +189,39 @@ func splitBatch(batch []metrics.Metrics, workersCount int) [][]metrics.Metrics {
 
 func StartSender(metricsChan <-chan []metrics.Metrics, serverURL string, reportInterval time.Duration, batchMode bool, key string, rateLimit int) {
 	cache := newMetricsCache()
-	var metricsBatch []metrics.Metrics
-	uniqueIDs := make(map[string]struct{})
 	tasksChan := make(chan sendTask, 100)
-
+	mb := newMetricsBatch()
 	runWorkers(rateLimit, tasksChan, batchMode)
 	ticker := time.NewTicker(reportInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case incomingMetrics := <-metricsChan:
+	go func() {
+		for incomingMetrics := range metricsChan {
 			for _, metric := range incomingMetrics {
-				_, ok := uniqueIDs[metric.ID]
+				_, ok := mb.unique[metric.ID]
+				mb.mu.Lock()
 				if !ok && cache.Update(metric) {
-					metricsBatch = append(metricsBatch, metric)
-					uniqueIDs[metric.ID] = struct{}{}
+					mb.batch = append(mb.batch, metric)
+					mb.unique[metric.ID] = struct{}{}
 				}
+				mb.mu.Unlock()
 			}
-		case <-ticker.C:
-			if len(metricsBatch) > 0 {
-				batches := splitBatch(metricsBatch, rateLimit)
+		}
+	}()
+
+	for range ticker.C {
+		go func() {
+			mb.mu.Lock()
+			if len(mb.batch) > 0 {
+				batches := splitBatch(mb.batch, rateLimit)
 				for _, batch := range batches {
 					tasksChan <- sendTask{metrics: batch, serverURL: serverURL, key: key}
 				}
+				mb.batch = make([]metrics.Metrics, 0)
+				mb.unique = make(map[string]struct{})
+				cache.ResetCounters()
 			}
-			cache.ResetCounters()
-			metricsBatch = []metrics.Metrics{}
-			uniqueIDs = make(map[string]struct{})
-		}
+			mb.mu.Unlock()
+		}()
 	}
 }
