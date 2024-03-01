@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/caarlos0/env/v10"
 	"github.com/evgfitil/go-metrics-server.git/internal/agentcore"
@@ -8,9 +9,11 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/spf13/cobra"
 	"net"
-	"runtime"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -19,22 +22,26 @@ const (
 	defaultPollInterval   = 2
 	defaultReportInterval = 10
 	defaultBatchMode      = true
+	defaultRateLimit      = 1
 )
 
 var (
-	collectedMetrics []agentcore.MetricInterface
-	pollCount        int64
-	cfg              *Config
-	rootCmd          = &cobra.Command{
+	cfg     *Config
+	rootCmd = &cobra.Command{
 		Use:   "agent",
 		Short: "A simple agent for collecting and sending metrics",
 		Long:  `Metrics agent is a lightweight and easy-to-use solution for collecting and sending various metrics`,
-		Run:   runAgent,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := cmd.Context()
+			runAgent(ctx)
+		},
 	}
 )
 
-func runAgent(cmd *cobra.Command, args []string) {
-	wg.Add(1)
+func runAgent(ctx context.Context) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	if err := env.Parse(cfg); err != nil {
 		logger.Sugar.Fatalf("error to parse environment variables: %v", err)
 	}
@@ -45,38 +52,18 @@ func runAgent(cmd *cobra.Command, args []string) {
 	serverURL := cfg.GetServerURL()
 	pollInterval := time.Duration(cfg.PollInterval) * time.Second
 	reportInterval := time.Duration(cfg.ReportInterval) * time.Second
-	lastPollTime, lastReportTime := time.Now(), time.Now()
+	metricsChan := make(chan []metrics.Metrics)
+	go func() {
+		defer wg.Done()
+		agentcore.StartCollector(ctx, metricsChan, pollInterval)
+	}()
 
 	go func() {
 		defer wg.Done()
-		logger.Sugar.Infoln("starting agent")
-		for {
-			now := time.Now()
-
-			if now.Sub(lastPollTime) >= pollInterval {
-				pollCount++
-				var m runtime.MemStats
-				runtime.ReadMemStats(&m)
-				collectedMetrics = agentcore.CollectMetrics(&m)
-				collectedMetrics = append(collectedMetrics, metrics.NewCounter("PollCount", pollCount))
-
-				lastPollTime = now
-			}
-
-			if now.Sub(lastReportTime) > reportInterval {
-				if !cfg.BatchMode {
-					agentcore.SendMetrics(collectedMetrics, serverURL)
-				} else {
-					agentcore.SendBatchMetrics(collectedMetrics, serverURL)
-				}
-				collectedMetrics = []agentcore.MetricInterface{}
-
-				lastReportTime = now
-			}
-
-			time.Sleep(1 * time.Second)
-		}
+		agentcore.StartSender(ctx, metricsChan, serverURL, reportInterval, cfg.BatchMode, cfg.SecretKey, cfg.RateLimit)
 	}()
+
+	wg.Wait()
 }
 
 func validateAddress(addr string) error {
@@ -102,7 +89,14 @@ func validateAddress(addr string) error {
 }
 
 func Execute() error {
-	return rootCmd.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM)
+	defer func() {
+		stop()
+		logger.Sugar.Infoln("shutdown signal received, graceful shutdown")
+	}()
+
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func init() {
@@ -111,4 +105,6 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.PollInterval, "poll-interval", "p", defaultPollInterval, "poll interval in seconds")
 	rootCmd.Flags().IntVarP(&cfg.ReportInterval, "report-interval", "r", defaultReportInterval, "report interval in seconds")
 	rootCmd.Flags().BoolVarP(&cfg.BatchMode, "batch-mode", "b", defaultBatchMode, "send batch of metrics")
+	rootCmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", "", "data secret key")
+	rootCmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", defaultRateLimit, "rate limit")
 }

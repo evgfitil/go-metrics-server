@@ -2,10 +2,8 @@ package main
 
 import (
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"sync"
+	"os"
 )
-
-var wg sync.WaitGroup
 
 func main() {
 	logger.InitLogger()
@@ -13,7 +11,6 @@ func main() {
 
 	if err := Execute(); err != nil {
 		logger.Sugar.Fatalf("error starting agent: %v", err)
+		os.Exit(1)
 	}
-
-	wg.Wait()
 }
