@@ -52,8 +52,8 @@ func collectRuntimeMetrics(m *runtime.MemStats) []metrics.Metrics {
 	return runtimeMetrics
 }
 
-func collectSystemMetrics() []metrics.Metrics {
-	vmStat, err := mem.VirtualMemoryWithContext(context.TODO())
+func collectSystemMetrics(ctx context.Context) []metrics.Metrics {
+	vmStat, err := mem.VirtualMemoryWithContext(ctx)
 	if err != nil {
 		logger.Sugar.Errorf("error retrieving mem system metrics: %v", err)
 	}
@@ -62,7 +62,7 @@ func collectSystemMetrics() []metrics.Metrics {
 		metrics.NewGauge("FreeMemory", float64(vmStat.Free)),
 	}
 
-	cpuPercentages, err := cpu.PercentWithContext(context.TODO(), 0, true)
+	cpuPercentages, err := cpu.PercentWithContext(ctx, 0, true)
 	if err != nil {
 		logger.Sugar.Errorf("error retrieving cpu system metrics: %v", err)
 	}
@@ -131,7 +131,7 @@ func StartCollector(ctx context.Context, metricsChan chan<- []metrics.Metrics, p
 
 				go func() {
 					defer wg.Done()
-					systemCollectorChan <- collectSystemMetrics()
+					systemCollectorChan <- collectSystemMetrics(ctx)
 				}()
 			}
 		}
