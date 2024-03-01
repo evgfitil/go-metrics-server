@@ -1,6 +1,7 @@
 package agentcore
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
@@ -95,7 +96,7 @@ func (mc *metricsCache) ResetCounters() {
 	}
 }
 
-func sendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
+func sendMetrics(ctx context.Context, key string, metrics []metrics.Metrics, serverURL string) {
 	for _, metric := range metrics {
 		sendingMetric, err := json.Marshal(metric)
 		if err != nil {
@@ -110,6 +111,7 @@ func sendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 			SetRetryWaitTime(retryWait).
 			SetRetryMaxWaitTime(retryMaxWaitTime)
 		req := client.R().
+			SetContext(ctx).
 			SetHeader("Content-type", "application/json").
 			SetBody(sendingMetric)
 		if key != "" {
@@ -124,7 +126,7 @@ func sendMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 	}
 }
 
-func sendBatchMetrics(key string, metrics []metrics.Metrics, serverURL string) {
+func sendBatchMetrics(ctx context.Context, key string, metrics []metrics.Metrics, serverURL string) {
 	sendingMetrics, err := json.Marshal(metrics)
 	if err != nil {
 		logger.Sugar.Errorln("error marshaling json: %v", err)
@@ -138,6 +140,7 @@ func sendBatchMetrics(key string, metrics []metrics.Metrics, serverURL string) {
 		SetRetryWaitTime(retryWait).
 		SetRetryMaxWaitTime(retryMaxWaitTime)
 	req := client.R().
+		SetContext(ctx).
 		SetHeader("Content-type", "application/json").
 		SetBody(sendingMetrics)
 	if key != "" {
@@ -159,14 +162,24 @@ func computeHash(key string, data []byte) string {
 	return fmt.Sprintf("%x", dst)
 }
 
-func runWorkers(workersCount int, tasksChan <-chan sendTask, batchMode bool) {
+func runWorkers(ctx context.Context, workersCount int, tasksChan <-chan sendTask, batchMode bool, wg *sync.WaitGroup) {
 	for i := 0; i < workersCount; i++ {
+		wg.Add(1)
 		go func() {
-			for task := range tasksChan {
-				if batchMode {
-					sendBatchMetrics(task.key, task.metrics, task.serverURL)
-				} else {
-					sendMetrics(task.key, task.metrics, task.serverURL)
+			defer wg.Done()
+			for {
+				select {
+				case task, ok := <-tasksChan:
+					if !ok {
+						return
+					}
+					if batchMode {
+						sendBatchMetrics(ctx, task.key, task.metrics, task.serverURL)
+					} else {
+						sendMetrics(ctx, task.key, task.metrics, task.serverURL)
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
@@ -187,15 +200,21 @@ func splitBatch(batch []metrics.Metrics, workersCount int) [][]metrics.Metrics {
 	return batches
 }
 
-func StartSender(metricsChan <-chan []metrics.Metrics, serverURL string, reportInterval time.Duration, batchMode bool, key string, rateLimit int) {
+func StartSender(ctx context.Context, metricsChan <-chan []metrics.Metrics, serverURL string, reportInterval time.Duration, batchMode bool, key string, rateLimit int) {
+	logger.Sugar.Infoln("sender has been started")
 	cache := newMetricsCache()
 	tasksChan := make(chan sendTask, 100)
 	mb := newMetricsBatch()
-	runWorkers(rateLimit, tasksChan, batchMode)
+
+	var wg sync.WaitGroup
+	runWorkers(ctx, rateLimit, tasksChan, batchMode, &wg)
+
 	ticker := time.NewTicker(reportInterval)
 	defer ticker.Stop()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for incomingMetrics := range metricsChan {
 			for _, metric := range incomingMetrics {
 				_, ok := mb.unique[metric.ID]
@@ -206,22 +225,47 @@ func StartSender(metricsChan <-chan []metrics.Metrics, serverURL string, reportI
 				}
 				mb.mu.Unlock()
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 		}
 	}()
 
-	for range ticker.C {
-		go func() {
-			mb.mu.Lock()
-			if len(mb.batch) > 0 {
-				batches := splitBatch(mb.batch, rateLimit)
-				for _, batch := range batches {
-					tasksChan <- sendTask{metrics: batch, serverURL: serverURL, key: key}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				mb.mu.Lock()
+				if len(mb.batch) > 0 {
+					batches := splitBatch(mb.batch, rateLimit)
+					for _, batch := range batches {
+						select {
+						case tasksChan <- sendTask{metrics: batch, serverURL: serverURL, key: key}:
+						case <-ctx.Done():
+							mb.mu.Unlock()
+							return
+						}
+					}
+					mb.batch = make([]metrics.Metrics, 0)
+					mb.unique = make(map[string]struct{})
+					cache.ResetCounters()
 				}
-				mb.batch = make([]metrics.Metrics, 0)
-				mb.unique = make(map[string]struct{})
-				cache.ResetCounters()
+				mb.mu.Unlock()
 			}
-			mb.mu.Unlock()
-		}()
-	}
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		logger.Sugar.Info("shutdown signal received, terminating the sender")
+		ticker.Stop()
+		close(tasksChan)
+	}()
+	wg.Wait()
 }

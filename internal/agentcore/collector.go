@@ -100,7 +100,8 @@ func aggregateChannels(channels ...<-chan []metrics.Metrics) <-chan []metrics.Me
 	return outCh
 }
 
-func StartCollector(metricsChan chan<- []metrics.Metrics, pollInterval time.Duration) {
+func StartCollector(ctx context.Context, metricsChan chan<- []metrics.Metrics, pollInterval time.Duration) {
+	logger.Sugar.Infoln("collector has been started")
 	var wg sync.WaitGroup
 	pollCollectorChan := make(chan []metrics.Metrics)
 	runtimeCollectorChan := make(chan []metrics.Metrics)
@@ -110,29 +111,49 @@ func StartCollector(metricsChan chan<- []metrics.Metrics, pollInterval time.Dura
 		ticker := time.NewTicker(pollInterval)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			wg.Add(3)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				wg.Add(3)
 
-			go func() {
-				pollCollectorChan <- []metrics.Metrics{metrics.NewCounter("PollCount", 1)}
-				wg.Done()
-			}()
+				go func() {
+					defer wg.Done()
+					pollCollectorChan <- []metrics.Metrics{metrics.NewCounter("PollCount", 1)}
+				}()
 
-			go func() {
-				runtime.ReadMemStats(&memStats)
-				runtimeCollectorChan <- collectRuntimeMetrics(&memStats)
-				wg.Done()
-			}()
+				go func() {
+					defer wg.Done()
+					runtime.ReadMemStats(&memStats)
+					runtimeCollectorChan <- collectRuntimeMetrics(&memStats)
+				}()
 
-			go func() {
-				systemCollectorChan <- collectSystemMetrics()
-				wg.Done()
-			}()
-			wg.Wait()
+				go func() {
+					defer wg.Done()
+					systemCollectorChan <- collectSystemMetrics()
+				}()
+			}
 		}
 	}()
 
-	for output := range aggregateChannels(pollCollectorChan, runtimeCollectorChan, systemCollectorChan) {
-		metricsChan <- output
-	}
+	go func() {
+		defer close(metricsChan)
+		for output := range aggregateChannels(pollCollectorChan, runtimeCollectorChan, systemCollectorChan) {
+			select {
+			case <-ctx.Done():
+				return
+			case metricsChan <- output:
+			}
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		logger.Sugar.Info("shutdown signal received, terminating the collector")
+		wg.Wait()
+		close(pollCollectorChan)
+		close(runtimeCollectorChan)
+		close(systemCollectorChan)
+	}()
 }

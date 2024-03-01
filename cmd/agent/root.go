@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/caarlos0/env/v10"
 	"github.com/evgfitil/go-metrics-server.git/internal/agentcore"
@@ -8,8 +9,11 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/spf13/cobra"
 	"net"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -27,12 +31,17 @@ var (
 		Use:   "agent",
 		Short: "A simple agent for collecting and sending metrics",
 		Long:  `Metrics agent is a lightweight and easy-to-use solution for collecting and sending various metrics`,
-		Run:   runAgent,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := cmd.Context()
+			runAgent(ctx)
+		},
 	}
 )
 
-func runAgent(cmd *cobra.Command, args []string) {
+func runAgent(ctx context.Context) {
+	var wg sync.WaitGroup
 	wg.Add(2)
+
 	if err := env.Parse(cfg); err != nil {
 		logger.Sugar.Fatalf("error to parse environment variables: %v", err)
 	}
@@ -44,8 +53,17 @@ func runAgent(cmd *cobra.Command, args []string) {
 	pollInterval := time.Duration(cfg.PollInterval) * time.Second
 	reportInterval := time.Duration(cfg.ReportInterval) * time.Second
 	metricsChan := make(chan []metrics.Metrics)
-	go agentcore.StartCollector(metricsChan, pollInterval)
-	go agentcore.StartSender(metricsChan, serverURL, reportInterval, cfg.BatchMode, cfg.SecretKey, cfg.RateLimit)
+	go func() {
+		defer wg.Done()
+		agentcore.StartCollector(ctx, metricsChan, pollInterval)
+	}()
+
+	go func() {
+		defer wg.Done()
+		agentcore.StartSender(ctx, metricsChan, serverURL, reportInterval, cfg.BatchMode, cfg.SecretKey, cfg.RateLimit)
+	}()
+
+	wg.Wait()
 }
 
 func validateAddress(addr string) error {
@@ -71,7 +89,14 @@ func validateAddress(addr string) error {
 }
 
 func Execute() error {
-	return rootCmd.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM)
+	defer func() {
+		stop()
+		logger.Sugar.Infoln("shutdown signal received, graceful shutdown")
+	}()
+
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func init() {
