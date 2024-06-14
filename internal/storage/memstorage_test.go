@@ -64,9 +64,9 @@ func TestMemStorage_Update(t *testing.T) {
 				"testGauge": {ID: "testGauge", MType: "gauge", Value: float64Ptr(46.6)}}},
 			args: args{
 				in0:    context.Background(),
-				metric: &metrics.Metrics{ID: "testGague", MType: "gauge", Value: float64Ptr(24.6)},
+				metric: &metrics.Metrics{ID: "testGauge", MType: "gauge", Value: float64Ptr(24.6)},
 			},
-			expectedMetric: &metrics.Metrics{ID: "testGague", MType: "gauge", Value: float64Ptr(24.6)},
+			expectedMetric: &metrics.Metrics{ID: "testGauge", MType: "gauge", Value: float64Ptr(24.6)},
 		},
 	}
 
