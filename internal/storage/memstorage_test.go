@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
@@ -80,4 +81,26 @@ func TestMemStorage_Update(t *testing.T) {
 			assert.Equal(t, tt.expectedMetric, storedMetric)
 		})
 	}
+}
+
+func TestMemStorage_UpdateConcurrent(t *testing.T) {
+	m := &MemStorage{
+		metrics: map[string]*metrics.Metrics{"testCounter": {ID: "testCounter", MType: "counter", Delta: int64Ptr(0)}},
+		mu:      sync.RWMutex{},
+	}
+
+	var testWG sync.WaitGroup
+
+	for i := 0; i < 100; i++ {
+		testWG.Add(1)
+		go func() {
+			defer testWG.Done()
+			m.Update(context.Background(), &metrics.Metrics{ID: "testCounter", MType: "counter", Delta: int64Ptr(1)})
+		}()
+	}
+	testWG.Wait()
+
+	storedMetric, exists := m.metrics["testCounter"]
+	assert.True(t, exists)
+	assert.Equal(t, *storedMetric.Delta, *int64Ptr(100))
 }
