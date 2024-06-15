@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type MemStorage struct {
