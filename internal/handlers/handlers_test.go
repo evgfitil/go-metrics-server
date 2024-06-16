@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
-	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"github.com/evgfitil/go-metrics-server.git/internal/mocks"
+	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 )
 
 func testMetricsRouter(s storage.Storage) chi.Router {
@@ -26,6 +29,12 @@ func testMetricsRouter(s storage.Storage) chi.Router {
 		r.Post("/{type}/{name}/{value}", UpdateMetricsPlain(s))
 	})
 	return r
+}
+
+func createMockStorageWithMetrics(ctrl *gomock.Controller, mockMetrics map[string]*metrics.Metrics) *mocks.MockStorage {
+	mockStorage := mocks.NewMockStorage(ctrl)
+	mockStorage.EXPECT().GetAllMetrics(gomock.Any()).Return(mockMetrics)
+	return mockStorage
 }
 
 func TestGetMetricsJsonHandler(t *testing.T) {
@@ -337,6 +346,51 @@ func TestUpdateMetricsHandler(t *testing.T) {
 			defer resp.Body.Close()
 
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
+		})
+	}
+}
+
+func TestGetAllMetrics(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name     string
+		metrics  map[string]*metrics.Metrics
+		validate func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name: "multiple existing metrics",
+			metrics: map[string]*metrics.Metrics{
+				"metric1": {ID: "metric1", MType: "counter", Delta: new(int64)},
+				"metric2": {ID: "metric2", MType: "gauge", Value: new(float64)},
+			},
+			validate: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, rr.Code)
+				assert.Contains(t, rr.Body.String(), "metric1")
+				assert.Contains(t, rr.Body.String(), "metric2")
+			},
+		},
+		{
+			name:    "no metrics",
+			metrics: make(map[string]*metrics.Metrics),
+			validate: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, rr.Code)
+				assert.Empty(t, rr.Body)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockStorage := createMockStorageWithMetrics(ctrl, tt.metrics)
+
+			req, err := http.NewRequest("GET", "/", nil)
+			assert.NoError(t, err)
+
+			rr := httptest.NewRecorder()
+			handler := GetAllMetrics(mockStorage)
+			handler.ServeHTTP(rr, req)
+			tt.validate(t, rr)
 		})
 	}
 }

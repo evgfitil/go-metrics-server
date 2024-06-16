@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type Storage interface {
@@ -39,10 +40,15 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
+		allMetrics := storage.GetAllMetrics(requestContext)
+
+		if len(allMetrics) == 0 {
+			res.WriteHeader(http.StatusOK)
+			return
+		}
 
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(res, "<html><body>\n")
-		allMetrics := storage.GetAllMetrics(requestContext)
 		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
