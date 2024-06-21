@@ -31,6 +31,14 @@ func testMetricsRouter(s storage.Storage) chi.Router {
 	return r
 }
 
+//func float64Ptr(f float64) *float64 {
+//	return &f
+//}
+//
+//func int64Ptr(i int64) *int64 {
+//	return &i
+//}
+
 func createMockStorageWithMetrics(ctrl *gomock.Controller, mockMetrics map[string]*metrics.Metrics) *mocks.MockStorage {
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockStorage.EXPECT().GetAllMetrics(gomock.Any()).Return(mockMetrics)
@@ -38,10 +46,14 @@ func createMockStorageWithMetrics(ctrl *gomock.Controller, mockMetrics map[strin
 }
 
 func TestGetMetricsJsonHandler(t *testing.T) {
-	mockStorage := storage.NewMemStorage()
-	testCounterValue := int64(100)
-	mockMetric := metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &testCounterValue}
-	mockStorage.Update(context.TODO(), &mockMetric)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStorage := mocks.NewMockStorage(ctrl)
+	metricDelta := int64(100)
+	storedMetric := &metrics.Metrics{ID: "testCounter", MType: "counter", Delta: &metricDelta}
+	mockStorage.EXPECT().Get(gomock.Any(), "testCounter", "counter").Return(storedMetric, true).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.Any(), "testTest", "counter").Return(nil, false).AnyTimes()
 
 	ts := httptest.NewServer(testMetricsRouter(mockStorage))
 	defer ts.Close()
@@ -391,6 +403,51 @@ func TestGetAllMetrics(t *testing.T) {
 			handler := GetAllMetrics(mockStorage)
 			handler.ServeHTTP(rr, req)
 			tt.validate(t, rr)
+		})
+	}
+}
+
+func TestPing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStorage := mocks.NewMockStorage(ctrl)
+
+	type want struct {
+		statusCode int
+	}
+	tests := []struct {
+		name           string
+		mockStorageErr error
+		want           want
+	}{
+		{
+			name:           "successful ping",
+			mockStorageErr: nil,
+			want: want{
+				statusCode: http.StatusOK,
+			},
+		},
+		{
+			name:           "internal server error",
+			mockStorageErr: assert.AnError,
+			want: want{
+				statusCode: http.StatusInternalServerError,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockStorage.EXPECT().Ping(gomock.Any()).Return(tt.mockStorageErr)
+
+			req, err := http.NewRequest(http.MethodGet, "/ping", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := Ping(mockStorage)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.want.statusCode, rr.Code)
 		})
 	}
 }
