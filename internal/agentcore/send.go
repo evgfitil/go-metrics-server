@@ -2,9 +2,10 @@ package agentcore
 
 import (
 	"encoding/json"
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/go-resty/resty/v2"
 	"time"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )
 
 const (

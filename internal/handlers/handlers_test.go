@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,13 +32,13 @@ func testMetricsRouter(s storage.Storage) chi.Router {
 	return r
 }
 
-//func float64Ptr(f float64) *float64 {
-//	return &f
-//}
-//
-//func int64Ptr(i int64) *int64 {
-//	return &i
-//}
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
 
 func createMockStorageWithMetrics(ctrl *gomock.Controller, mockMetrics map[string]*metrics.Metrics) *mocks.MockStorage {
 	mockStorage := mocks.NewMockStorage(ctrl)
@@ -143,56 +144,72 @@ func TestUpdateMetricsJsonHandler(t *testing.T) {
 		body       string
 	}
 	tests := []struct {
-		name          string
-		requestMethod string
-		requestPath   string
-		requestBody   metrics.Metrics
-		want          want
+		contentTypeHeader string
+		name              string
+		requestMethod     string
+		requestPath       string
+		requestBody       metrics.Metrics
+		want              want
 	}{
 		{
-			name:          "valid Counter update",
-			requestMethod: http.MethodPost,
-			requestPath:   "/update/",
-			requestBody:   validCounterMetric,
+			name:              "valid Counter update",
+			contentTypeHeader: "application/json",
+			requestMethod:     http.MethodPost,
+			requestPath:       "/update/",
+			requestBody:       validCounterMetric,
 			want: want{
 				statusCode: http.StatusOK,
 				body:       `{"id":"testCounter","type":"counter","delta":100}`,
 			},
 		},
 		{
-			name:          "valid Gauge update",
-			requestMethod: http.MethodPost,
-			requestPath:   "/update/",
-			requestBody:   validGaugeMetric,
+			name:              "valid Gauge update",
+			contentTypeHeader: "application/json",
+			requestMethod:     http.MethodPost,
+			requestPath:       "/update/",
+			requestBody:       validGaugeMetric,
 			want: want{
 				statusCode: http.StatusOK,
 				body:       `{"id":"testGauge","type":"gauge","value":123.12}`,
 			},
 		},
 		{
-			name:          "invalid request method",
-			requestMethod: http.MethodGet,
-			requestPath:   "/update/",
+			name:              "invalid request method",
+			contentTypeHeader: "application/json",
+			requestMethod:     http.MethodGet,
+			requestPath:       "/update/",
 			want: want{
 				statusCode: http.StatusMethodNotAllowed,
 			},
 		},
 		{
-			name:          "invalid path",
-			requestMethod: http.MethodPost,
-			requestPath:   "/update/u",
-			requestBody:   validGaugeMetric,
+			name:              "invalid path",
+			contentTypeHeader: "application/json",
+			requestMethod:     http.MethodPost,
+			requestPath:       "/update/u",
+			requestBody:       validGaugeMetric,
 			want: want{
 				statusCode: http.StatusNotFound,
 			},
 		},
 		{
-			name:          "invalid metric type",
-			requestMethod: http.MethodPost,
-			requestPath:   "/update/",
-			requestBody:   invalidMetric,
+			name:              "invalid metric type",
+			contentTypeHeader: "application/json",
+			requestMethod:     http.MethodPost,
+			requestPath:       "/update/",
+			requestBody:       invalidMetric,
 			want: want{
 				statusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name:              "missing content-type header",
+			contentTypeHeader: "text/plain",
+			requestMethod:     http.MethodPost,
+			requestPath:       "/update/",
+			requestBody:       validCounterMetric,
+			want: want{
+				statusCode: http.StatusUnsupportedMediaType,
 			},
 		},
 	}
@@ -201,7 +218,7 @@ func TestUpdateMetricsJsonHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			jsonBody, _ := json.Marshal(tt.requestBody)
 			req, err := http.NewRequest(tt.requestMethod, ts.URL+tt.requestPath, bytes.NewBuffer(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", tt.contentTypeHeader)
 			require.NoError(t, err)
 
 			resp, err := ts.Client().Do(req)
@@ -448,6 +465,132 @@ func TestPing(t *testing.T) {
 			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.want.statusCode, rr.Code)
+		})
+	}
+}
+
+func TestUpdateMetricsCollection(t *testing.T) {
+	type want struct {
+		statusCode int
+	}
+
+	tests := []struct {
+		name    string
+		storage func(t *testing.T) Storage
+		body    []byte
+		want    want
+	}{
+		{
+			name: "successful batch update",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				mockStorage := mocks.NewMockStorage(ctrl)
+				mockStorage.EXPECT().UpdateMetrics(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+				return mockStorage
+			},
+			body: func() []byte {
+				metrics := []*metrics.Metrics{
+					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
+					{ID: "count", MType: "counter", Delta: int64Ptr(5)},
+				}
+				b, _ := json.Marshal(metrics)
+				return b
+			}(),
+			want: want{
+				statusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "partial failure",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				mockStorage := mocks.NewMockStorage(ctrl)
+				mockStorage.EXPECT().UpdateMetrics(gomock.Any(), gomock.Any()).Return(errors.New("partial update error")).Times(1)
+				return mockStorage
+			},
+			body: func() []byte {
+				metrics := []*metrics.Metrics{
+					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
+					{ID: "invalid", MType: "unknown", Value: float64Ptr(100)},
+				}
+				b, _ := json.Marshal(metrics)
+				return b
+			}(),
+			want: want{
+				statusCode: http.StatusInternalServerError,
+			},
+		},
+		{
+			name: "invalid json input",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				return mocks.NewMockStorage(ctrl)
+			},
+			body: []byte(`{"metrics": [{"ID": "temp", "MType": "gauge", "Value": "32.5"}, "unterminated": `),
+			want: want{
+				statusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name: "storage failures",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				mockStorage := mocks.NewMockStorage(ctrl)
+				mockStorage.EXPECT().UpdateMetrics(gomock.Any(), gomock.Any()).Return(errors.New("database error")).Times(1)
+				return mockStorage
+			},
+			body: func() []byte {
+				metrics := []*metrics.Metrics{
+					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
+				}
+				b, _ := json.Marshal(metrics)
+				return b
+			}(),
+			want: want{
+				statusCode: http.StatusInternalServerError,
+			},
+		},
+		{
+			name: "empty input",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				return mocks.NewMockStorage(ctrl)
+			},
+			body: []byte(`[]`),
+			want: want{
+				statusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "edge cases",
+			storage: func(t *testing.T) Storage {
+				ctrl := gomock.NewController(t)
+				mockStorage := mocks.NewMockStorage(ctrl)
+				mockStorage.EXPECT().UpdateMetrics(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+				return mockStorage
+			},
+			body: func() []byte {
+				metrics := make([]*metrics.Metrics, 1000)
+				b, _ := json.Marshal(metrics)
+				return b
+			}(),
+			want: want{
+				statusCode: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := tt.storage(t)
+			handler := UpdateMetricsCollection(storage)
+
+			req, _ := http.NewRequest("POST", "/update/metrics", bytes.NewBuffer(tt.body))
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.want.statusCode, rr.Code, "Unexpected status code for "+tt.name)
 		})
 	}
 }

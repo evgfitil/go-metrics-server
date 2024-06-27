@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -165,6 +166,239 @@ func TestMemStorage_UpdateConcurrent(t *testing.T) {
 			defer testWG.Done()
 			m.Update(context.Background(), &metrics.Metrics{ID: "testCounter", MType: "counter", Delta: int64Ptr(1)})
 		}()
+	}
+	testWG.Wait()
+
+	storedMetric, exists := m.metrics["testCounter"]
+	assert.True(t, exists)
+	assert.Equal(t, *storedMetric.Delta, *int64Ptr(100))
+}
+
+func TestMemStorage_GetAllMetrics(t *testing.T) {
+	type fields struct {
+		metrics map[string]*metrics.Metrics
+		mu      *sync.RWMutex
+	}
+	type args struct {
+		in0 context.Context
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   map[string]*metrics.Metrics
+	}{
+		{
+			name: "empty storage",
+			fields: fields{
+				metrics: map[string]*metrics.Metrics{},
+				mu:      &sync.RWMutex{},
+			},
+			args: args{
+				in0: context.Background(),
+			},
+			want: map[string]*metrics.Metrics{},
+		},
+		{
+			name: "mixed metric types",
+			fields: fields{
+				metrics: map[string]*metrics.Metrics{
+					"gaugeMetric": {
+						ID:    "gaugeMetric",
+						MType: "gauge",
+						Value: float64Ptr(123.456),
+					},
+					"counterMetric": {
+						ID:    "counterMetric",
+						MType: "counter",
+						Delta: int64Ptr(789),
+					},
+				},
+				mu: &sync.RWMutex{},
+			},
+			args: args{
+				in0: context.Background(),
+			},
+			want: map[string]*metrics.Metrics{
+				"gaugeMetric": {
+					ID:    "gaugeMetric",
+					MType: "gauge",
+					Value: float64Ptr(123.456),
+				},
+				"counterMetric": {
+					ID:    "counterMetric",
+					MType: "counter",
+					Delta: int64Ptr(789),
+				},
+			},
+		},
+		{
+			name: "concurrent access",
+			fields: fields{
+				metrics: map[string]*metrics.Metrics{
+					"counterMetric": {
+						ID:    "counterMetric",
+						MType: "counter",
+						Delta: int64Ptr(0),
+					},
+				},
+				mu: &sync.RWMutex{},
+			},
+			args: args{
+				in0: context.Background(),
+			},
+			want: map[string]*metrics.Metrics{
+				"counterMetric": {
+					ID:    "counterMetric",
+					MType: "counter",
+					Delta: int64Ptr(100),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &MemStorage{
+				metrics: tt.fields.metrics,
+			}
+
+			if tt.name == "concurrent access" {
+				var testWG sync.WaitGroup
+				numGoroutines := 100
+				for i := 0; i < numGoroutines; i++ {
+					testWG.Add(1)
+					go func() {
+						defer testWG.Done()
+						metric := &metrics.Metrics{
+							ID:    "counterMetric",
+							MType: "counter",
+							Delta: int64Ptr(1),
+						}
+						m.Update(tt.args.in0, metric)
+					}()
+				}
+				testWG.Wait()
+			}
+
+			got := m.GetAllMetrics(tt.args.in0)
+			assert.Equalf(t, tt.want, got, "GetAllMetrics(%v)", tt.args.in0)
+		})
+	}
+}
+
+func generateBatchOfMetrics(size int, metricType string) []*metrics.Metrics {
+	batch := make([]*metrics.Metrics, size)
+	for i := 0; i < size; i++ {
+		id := "metric" + strconv.Itoa(i)
+		if metricType == "gauge" {
+			batch[i] = &metrics.Metrics{
+				ID:    id,
+				MType: "gauge",
+				Value: float64Ptr(float64(i) + 0.1),
+			}
+		} else if metricType == "counter" {
+			batch[i] = &metrics.Metrics{
+				ID:    id,
+				MType: "counter",
+				Delta: int64Ptr(int64(i) + 1),
+			}
+		}
+	}
+	return batch
+}
+
+func TestMemStorage_UpdateMetrics(t *testing.T) {
+	type fields struct {
+		metrics map[string]*metrics.Metrics
+	}
+	type args struct {
+		ctx     context.Context
+		metrics []*metrics.Metrics
+	}
+	tests := []struct {
+		name           string
+		fields         fields
+		args           args
+		expectedResult map[string]*metrics.Metrics
+	}{
+		{
+			name: "successful add large batch of gauges",
+			fields: fields{
+				metrics: make(map[string]*metrics.Metrics),
+			},
+			args: args{
+				ctx:     context.Background(),
+				metrics: generateBatchOfMetrics(10000, "gauge"),
+			},
+			expectedResult: func() map[string]*metrics.Metrics {
+				expected := make(map[string]*metrics.Metrics)
+				for i := 0; i < 10000; i++ {
+					id := "metric" + strconv.Itoa(i)
+					expected[id] = &metrics.Metrics{
+						ID:    id,
+						MType: "gauge",
+						Value: float64Ptr(float64(i) + 0.1),
+					}
+				}
+				return expected
+			}(),
+		},
+		{
+			name: "successful add large batch of counters",
+			fields: fields{
+				metrics: make(map[string]*metrics.Metrics),
+			},
+			args: args{
+				ctx:     context.Background(),
+				metrics: generateBatchOfMetrics(10000, "counter"),
+			},
+			expectedResult: func() map[string]*metrics.Metrics {
+				expected := make(map[string]*metrics.Metrics)
+				for i := 0; i < 10000; i++ {
+					id := "metric" + strconv.Itoa(i)
+					expected[id] = &metrics.Metrics{
+						ID:    id,
+						MType: "counter",
+						Delta: int64Ptr(int64(i) + 1),
+					}
+				}
+				return expected
+			}(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &MemStorage{
+				metrics: tt.fields.metrics,
+			}
+			err := m.UpdateMetrics(tt.args.ctx, tt.args.metrics)
+			assert.NoError(t, err, "UpdateMetrics should not return an error")
+			assert.Equal(t, tt.expectedResult, m.metrics)
+		})
+	}
+}
+
+func TestMemStorage_UpdateMetricsConcurrent(t *testing.T) {
+	m := &MemStorage{
+		metrics: map[string]*metrics.Metrics{"testCounter": {ID: "testCounter", MType: "counter", Delta: int64Ptr(0)}},
+		mu:      sync.RWMutex{},
+	}
+
+	var testWG sync.WaitGroup
+	numGoroutines := 100
+	metricsBatch := make([]*metrics.Metrics, numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		metricsBatch[i] = &metrics.Metrics{ID: "testCounter", MType: "counter", Delta: int64Ptr(1)}
+	}
+
+	for i := 0; i < numGoroutines; i++ {
+		testWG.Add(1)
+		go func(i int) {
+			defer testWG.Done()
+			m.Update(context.Background(), metricsBatch[i])
+		}(i)
 	}
 	testWG.Wait()
 

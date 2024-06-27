@@ -196,6 +196,10 @@ func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 			return
 		}
 
+		if len(incomingMetrics) == 0 {
+			http.Error(res, "empty input", http.StatusOK)
+			return
+		}
 		if err := storage.UpdateMetrics(requestContext, incomingMetrics); err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 		}
