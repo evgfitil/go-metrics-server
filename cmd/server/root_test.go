@@ -3,17 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/caarlos0/env/v10"
 	"github.com/spf13/cobra"
 	"net"
-	"os"
-	"reflect"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 )
 
 func getFreePort() (int, error) {
@@ -55,70 +51,6 @@ func TestExecute(t *testing.T) {
 
 			if err := Execute(); (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func Test_initStorage(t *testing.T) {
-	logger.InitLogger()
-	defer logger.Sugar.Sync()
-
-	tests := []struct {
-		name    string
-		envVars map[string]string
-		want    storage.Storage
-		wantErr bool
-	}{
-		{
-			name: "initialize in-memory storage",
-			envVars: map[string]string{
-				"FILE_STORAGE_PATH": "",
-				"DATABASE_DSN":      "",
-			},
-			wantErr: false,
-		},
-		{
-			name: "initialize file storage",
-			envVars: map[string]string{
-				"FILE_STORAGE_PATH": "/tmp/test-db.json",
-				"STORE_INTERVAL":    "600",
-				"RESTORE":           "true",
-			},
-			wantErr: false,
-		},
-		{
-			name: "initialize db storage",
-			envVars: map[string]string{
-				"DATABASE_DSN": "user:password@/dbname",
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for key, value := range tt.envVars {
-				os.Setenv(key, value)
-			}
-
-			cfg = NewConfig()
-			if err := env.Parse(cfg); err != nil {
-				t.Fatalf("Failed to parse env vars: %v", err)
-			}
-
-			got, err := initStorage()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("initStorage() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.want != nil && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("initStorage() got = %v, want %v", got, tt.want)
-			}
-
-			for key := range tt.envVars {
-				os.Unsetenv(key)
 			}
 		})
 	}

@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/caarlos0/env/v10"
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 	"github.com/spf13/cobra"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
+	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 )
 
 const (
@@ -80,6 +82,12 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	if cfg.EnablePprof {
+		go func() {
+			logger.Sugar.Infoln("pprof server listening on localhost:6060")
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
 	go func() {
 		logger.Sugar.Infoln("starting server")
 		err := http.ListenAndServe(cfg.BindAddress, logger.WithLogging(MetricsRouter(s)))
@@ -128,4 +136,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.FileStoragePath, "file-storage-path", "f", defaultFileStoragePath, "file path where the server writes its data")
 	rootCmd.Flags().BoolVarP(&cfg.Restore, "restore", "r", defaultRestore, "loading previously saved data from a file at startup")
 	rootCmd.Flags().StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", "", "database connection string")
+	rootCmd.Flags().BoolVarP(&cfg.EnablePprof, "enable-pprof", "p", false, "enable pprof mode")
 }

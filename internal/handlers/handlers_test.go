@@ -32,11 +32,11 @@ func testMetricsRouter(s storage.Storage) chi.Router {
 	return r
 }
 
-func float64Ptr(f float64) *float64 {
+func Float64Ptr(f float64) *float64 {
 	return &f
 }
 
-func int64Ptr(i int64) *int64 {
+func Int64Ptr(i int64) *int64 {
 	return &i
 }
 
@@ -490,8 +490,8 @@ func TestUpdateMetricsCollection(t *testing.T) {
 			},
 			body: func() []byte {
 				metrics := []*metrics.Metrics{
-					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
-					{ID: "count", MType: "counter", Delta: int64Ptr(5)},
+					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
+					{ID: "count", MType: "counter", Delta: Int64Ptr(5)},
 				}
 				b, _ := json.Marshal(metrics)
 				return b
@@ -510,8 +510,8 @@ func TestUpdateMetricsCollection(t *testing.T) {
 			},
 			body: func() []byte {
 				metrics := []*metrics.Metrics{
-					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
-					{ID: "invalid", MType: "unknown", Value: float64Ptr(100)},
+					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
+					{ID: "invalid", MType: "unknown", Value: Float64Ptr(100)},
 				}
 				b, _ := json.Marshal(metrics)
 				return b
@@ -541,7 +541,7 @@ func TestUpdateMetricsCollection(t *testing.T) {
 			},
 			body: func() []byte {
 				metrics := []*metrics.Metrics{
-					{ID: "temp", MType: "gauge", Value: float64Ptr(32.5)},
+					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
 				}
 				b, _ := json.Marshal(metrics)
 				return b
