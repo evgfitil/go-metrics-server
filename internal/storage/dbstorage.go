@@ -5,15 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
+	"sync"
+
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"sync"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 const (

@@ -2,10 +2,11 @@ package storage
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"strconv"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )

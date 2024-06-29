@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
 	"net"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )

@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/caarlos0/env/v10"
-	"github.com/spf13/cobra"
 	"net"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/caarlos0/env/v10"
+	"github.com/spf13/cobra"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/agentcore"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"

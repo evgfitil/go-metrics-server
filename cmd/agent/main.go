@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"sync"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )
 
 var wg sync.WaitGroup
