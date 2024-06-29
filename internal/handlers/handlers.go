@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type Storage interface {
@@ -22,6 +25,21 @@ type Storage interface {
 const (
 	requestTimeout = 1 * time.Second
 )
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
+func decodeJSON(data []byte, v interface{}) error {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	buf.Write(data)
+	return json.NewDecoder(buf).Decode(v)
+}
 
 func updateCounter(ctx context.Context, storage Storage, metricName string, metricValue int64) error {
 	metric := metrics.Metrics{ID: metricName, MType: "counter", Delta: &metricValue}
@@ -39,10 +57,15 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
+		allMetrics := storage.GetAllMetrics(requestContext)
+
+		if len(allMetrics) == 0 {
+			res.WriteHeader(http.StatusOK)
+			return
+		}
 
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(res, "<html><body>\n")
-		allMetrics := storage.GetAllMetrics(requestContext)
 		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
@@ -127,7 +150,15 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 
 		var incomingMetric metrics.Metrics
 
-		if err := json.NewDecoder(req.Body).Decode(&incomingMetric); err != nil {
+		buf := bufferPool.Get().(*bytes.Buffer)
+		buf.Reset()
+		defer bufferPool.Put(buf)
+
+		if _, err := buf.ReadFrom(req.Body); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := decodeJSON(buf.Bytes(), &incomingMetric); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -190,6 +221,10 @@ func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 			return
 		}
 
+		if len(incomingMetrics) == 0 {
+			http.Error(res, "empty input", http.StatusOK)
+			return
+		}
 		if err := storage.UpdateMetrics(requestContext, incomingMetrics); err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 		}

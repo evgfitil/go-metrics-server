@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"sync"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type MemStorage struct {
@@ -53,7 +54,12 @@ func (m *MemStorage) GetAllMetrics(_ context.Context) map[string]*metrics.Metric
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return m.metrics
+	result := make(map[string]*metrics.Metrics)
+	for key, value := range m.metrics {
+		metricCopy := *value
+		result[key] = &metricCopy
+	}
+	return result
 }
 
 func (m *MemStorage) SaveMetrics(_ context.Context) error {
@@ -64,10 +70,44 @@ func (m *MemStorage) Ping(_ context.Context) error {
 	return nil
 }
 
-func (m *MemStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metrics) error {
-	for _, metric := range metrics {
-		m.Update(ctx, metric)
+func (m *MemStorage) UpdateMetrics(ctx context.Context, batchOfMetrics []*metrics.Metrics) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, metric := range batchOfMetrics {
+		if metric == nil || metric.MType == "" || metric.ID == "" {
+			continue
+		}
+
+		switch metric.MType {
+		case "counter":
+			if metric.Delta == nil {
+				continue
+			}
+			oldMetric, ok := m.metrics[metric.ID]
+			if !ok {
+				m.metrics[metric.ID] = metric
+			} else if oldMetric.Delta != nil {
+				newDelta := *metric.Delta + *oldMetric.Delta
+				m.metrics[metric.ID] = &metrics.Metrics{
+					ID:    metric.ID,
+					MType: metric.MType,
+					Delta: &newDelta,
+				}
+			}
+		case "gauge":
+			if metric.Value == nil {
+				continue
+			}
+			oldMetric, ok := m.metrics[metric.ID]
+			if !ok || *oldMetric.Value != *metric.Value {
+				m.metrics[metric.ID] = metric
+			}
+		default:
+			continue
+		}
 	}
+
 	return nil
 }
 

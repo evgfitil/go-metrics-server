@@ -3,15 +3,16 @@ package main
 import (
 	"fmt"
 	"github.com/caarlos0/env/v10"
-	"github.com/evgfitil/go-metrics-server.git/internal/agentcore"
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/spf13/cobra"
 	"net"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/agentcore"
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 const (
