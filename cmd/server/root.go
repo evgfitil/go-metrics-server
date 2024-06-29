@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/caarlos0/env/v10"
-	"github.com/spf13/cobra"
 	"log"
 	"net"
 	"net/http"
@@ -13,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/caarlos0/env/v10"
+	"github.com/spf13/cobra"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"

@@ -3,10 +3,11 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"github.com/evgfitil/go-metrics-server.git/internal/logger"
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"os"
 	"time"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type FileStorage struct {

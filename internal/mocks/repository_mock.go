@@ -13,8 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	metrics "github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	gomock "go.uber.org/mock/gomock"
+
+	metrics "github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 // MockStorage is a mock of Storage interface.

@@ -2,8 +2,9 @@ package agentcore
 
 import (
 	"encoding/json"
-	"github.com/go-resty/resty/v2"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )

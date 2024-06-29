@@ -1,9 +1,10 @@
 package agentcore
 
 import (
-	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"math/rand"
 	"runtime"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
 type MetricInterface interface {

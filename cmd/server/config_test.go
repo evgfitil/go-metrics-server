@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/caarlos0/env/v10"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/caarlos0/env/v10"
 )
 
 func TestNewConfig(t *testing.T) {

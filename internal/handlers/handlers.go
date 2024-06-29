@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
