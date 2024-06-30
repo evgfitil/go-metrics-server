@@ -15,6 +15,7 @@ const (
 	retryMaxWaitTime = 5 * time.Second
 )
 
+// SendMetrics sends individual metrics to the server.
 func SendMetrics(metrics []MetricInterface, serverURL string) {
 	for _, metric := range metrics {
 		sendingMetric, err := json.Marshal(metric)
@@ -41,6 +42,7 @@ func SendMetrics(metrics []MetricInterface, serverURL string) {
 	}
 }
 
+// SendBatchMetrics sends a batch of metrics to the server.
 func SendBatchMetrics(metrics []MetricInterface, serverURL string) {
 	sendingMetrics, err := json.Marshal(metrics)
 	if err != nil {
