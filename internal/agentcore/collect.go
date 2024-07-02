@@ -7,12 +7,15 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
+// MetricInterface defines the methods that metrics must implement.
 type MetricInterface interface {
 	GetName() string
 	GetType() string
 	GetValueAsString() (string, error)
 }
 
+// CollectMetrics collects system metrics and returns them as a slice of MetricInterface.
+// The metrics collected include memory stats and a random value.
 func CollectMetrics(m *runtime.MemStats) []MetricInterface {
 	collectedMetrics := []MetricInterface{
 		metrics.NewGauge("Alloc", float64(m.Alloc)),

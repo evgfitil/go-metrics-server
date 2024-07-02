@@ -15,6 +15,7 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
+// Storage defines the interface for a metrics storage system.
 type Storage interface {
 	Get(ctx context.Context, metricName, metricType string) (*metrics.Metrics, bool)
 	GetAllMetrics(ctx context.Context) map[string]*metrics.Metrics
@@ -54,6 +55,7 @@ func updateGauge(ctx context.Context, storage Storage, metricName string, metric
 	return nil
 }
 
+// GetAllMetrics returns an HTTP handler that responds with all metrics in HTML format.
 func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -79,6 +81,7 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 	}
 }
 
+// GetMetricsJSON returns an HTTP handler that responds with a specific metric in JSON format.
 func GetMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -115,6 +118,7 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 	}
 }
 
+// GetMetricsPlain returns an HTTP handler that responds with a specific metric in plain text format.
 func GetMetricsPlain(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -140,6 +144,7 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 	}
 }
 
+// UpdateMetricsJSON returns an HTTP handler that updates a metric with data from a JSON request body.
 func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -210,6 +215,7 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 	}
 }
 
+// UpdateMetricsCollection returns an HTTP handler that updates multiple metrics with data from a JSON request body.
 func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -232,6 +238,7 @@ func UpdateMetricsCollection(storage Storage) http.HandlerFunc {
 	}
 }
 
+// UpdateMetricsPlain returns an HTTP handler that updates a metric with data from URL parameters.
 func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
@@ -269,6 +276,7 @@ func UpdateMetricsPlain(storage Storage) http.HandlerFunc {
 	}
 }
 
+// Ping returns an HTTP handler that checks the connectivity to the storage system.
 func Ping(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := storage.Ping(req.Context())
