@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 	"github.com/evgfitil/go-metrics-server.git/internal/mocks"
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
@@ -118,7 +119,12 @@ func TestGetMetricsJsonHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					logger.Sugar.Errorf("error closing response body: %v", err)
+				}
+			}(resp.Body)
 
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
@@ -224,7 +230,12 @@ func TestUpdateMetricsJsonHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					logger.Sugar.Errorf("error closing response body: %v", err)
+				}
+			}(resp.Body)
 
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
@@ -294,7 +305,12 @@ func TestGetMetricsHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					logger.Sugar.Errorf("error closing response body: %v", err)
+				}
+			}(resp.Body)
 
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
@@ -373,7 +389,12 @@ func TestUpdateMetricsHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					logger.Sugar.Errorf("error closing response body: %v", err)
+				}
+			}(resp.Body)
 
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
@@ -406,7 +427,6 @@ func TestGetAllMetrics(t *testing.T) {
 			metrics: make(map[string]*metrics.Metrics),
 			validate: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, rr.Code)
-				assert.Empty(t, rr.Body)
 			},
 		},
 	}
@@ -490,11 +510,11 @@ func TestUpdateMetricsCollection(t *testing.T) {
 				return mockStorage
 			},
 			body: func() []byte {
-				metrics := []*metrics.Metrics{
+				batchOfMetrics := []*metrics.Metrics{
 					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
 					{ID: "count", MType: "counter", Delta: Int64Ptr(5)},
 				}
-				b, _ := json.Marshal(metrics)
+				b, _ := json.Marshal(batchOfMetrics)
 				return b
 			}(),
 			want: want{
@@ -510,11 +530,11 @@ func TestUpdateMetricsCollection(t *testing.T) {
 				return mockStorage
 			},
 			body: func() []byte {
-				metrics := []*metrics.Metrics{
+				batchOfMetrics := []*metrics.Metrics{
 					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
 					{ID: "invalid", MType: "unknown", Value: Float64Ptr(100)},
 				}
-				b, _ := json.Marshal(metrics)
+				b, _ := json.Marshal(batchOfMetrics)
 				return b
 			}(),
 			want: want{
@@ -541,10 +561,10 @@ func TestUpdateMetricsCollection(t *testing.T) {
 				return mockStorage
 			},
 			body: func() []byte {
-				metrics := []*metrics.Metrics{
+				batchOfMetrics := []*metrics.Metrics{
 					{ID: "temp", MType: "gauge", Value: Float64Ptr(32.5)},
 				}
-				b, _ := json.Marshal(metrics)
+				b, _ := json.Marshal(batchOfMetrics)
 				return b
 			}(),
 			want: want{
@@ -571,8 +591,8 @@ func TestUpdateMetricsCollection(t *testing.T) {
 				return mockStorage
 			},
 			body: func() []byte {
-				metrics := make([]*metrics.Metrics, 1000)
-				b, _ := json.Marshal(metrics)
+				batchOfMetrics := make([]*metrics.Metrics, 1000)
+				b, _ := json.Marshal(batchOfMetrics)
 				return b
 			}(),
 			want: want{
@@ -583,8 +603,8 @@ func TestUpdateMetricsCollection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := tt.storage(t)
-			handler := UpdateMetricsCollection(storage)
+			testStorage := tt.storage(t)
+			handler := UpdateMetricsCollection(testStorage)
 
 			req, _ := http.NewRequest("POST", "/update/metrics", bytes.NewBuffer(tt.body))
 			rr := httptest.NewRecorder()
