@@ -301,12 +301,11 @@ func TestGetMetricsHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
 					logger.Sugar.Errorf("error closing response body: %v", err)
 				}
-			}(resp.Body)
+			}()
 
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
@@ -385,12 +384,11 @@ func TestUpdateMetricsHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
 					logger.Sugar.Errorf("error closing response body: %v", err)
 				}
-			}(resp.Body)
+			}()
 
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 		})
