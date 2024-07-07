@@ -118,14 +118,13 @@ func TestGetMetricsJsonHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := ts.Client().Do(req)
-			require.NoError(t, err)
 			defer func(Body io.ReadCloser) {
-				err = Body.Close()
+				err := Body.Close()
 				if err != nil {
 					logger.Sugar.Errorf("error closing response body: %v", err)
 				}
 			}(resp.Body)
-
+			require.NoError(t, err)
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 			if tt.want.statusCode == http.StatusOK {
