@@ -6,7 +6,10 @@
 package main
 
 import (
+	"fmt"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )
@@ -15,7 +18,12 @@ var wg sync.WaitGroup
 
 func main() {
 	logger.InitLogger()
-	defer logger.Sugar.Sync()
+	defer func(Sugar *zap.SugaredLogger) {
+		err := Sugar.Sync()
+		if err != nil {
+			fmt.Printf("error syncin logger: %v", err)
+		}
+	}(logger.Sugar)
 
 	if err := Execute(); err != nil {
 		logger.Sugar.Fatalf("error starting agent: %v", err)

@@ -25,3 +25,5 @@ vendor/
 .vscode
 metricstest-darwin-arm64
 **/**/.DS_Store
+
+*.sh

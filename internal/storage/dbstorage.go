@@ -170,7 +170,12 @@ func (db *DBStorage) fetchCounterMetrics(ctx context.Context, metricsCache *metr
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
 		}
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err = rows.Close()
+		if err != nil {
+			logger.Sugar.Errorf("erorr closing the SQL rows: %v", err)
+		}
+	}(rows)
 
 	metricsCache.mu.Lock()
 	defer metricsCache.mu.Unlock()
@@ -198,7 +203,12 @@ func (db *DBStorage) fetchGaugeMetrics(ctx context.Context, metricsCache *metric
 			logger.Sugar.Errorf("error retrieving metrics: %v", err)
 		}
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err = rows.Close()
+		if err != nil {
+			logger.Sugar.Errorf("erorr closing the SQL rows: %v", err)
+		}
+	}(rows)
 
 	metricsCache.mu.Lock()
 	defer metricsCache.mu.Unlock()
@@ -222,7 +232,13 @@ func (db *DBStorage) UpdateMetrics(ctx context.Context, metrics []*metrics.Metri
 	if err != nil {
 		logger.Sugar.Errorln("error starting transaction: %v", err)
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err = tx.Rollback()
+		if err != nil {
+			logger.Sugar.Errorf("error rolling back the transaction: %v", err)
+		}
+	}(tx)
+
 	for _, metric := range metrics {
 		switch metric.MType {
 		case "counter":

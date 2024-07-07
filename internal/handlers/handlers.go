@@ -1,3 +1,6 @@
+// Package handlers provides HTTP handlers for the server to receive and process
+// metrics from agents. It includes functionalities to parse incoming requests,
+// store metrics, and return responses.
 package handlers
 
 import (
@@ -12,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 	"github.com/evgfitil/go-metrics-server.git/internal/metrics"
 )
 
@@ -60,24 +64,52 @@ func GetAllMetrics(storage Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		requestContext, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
+
 		allMetrics := storage.GetAllMetrics(requestContext)
 
-		if len(allMetrics) == 0 {
-			res.WriteHeader(http.StatusOK)
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+		_, err := fmt.Fprintf(res, "<html><body>\n")
+		if err != nil {
+			logger.Sugar.Errorf("Error writing initial response: %v", err)
+			http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		res.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(res, "<html><body>\n")
+		if len(allMetrics) == 0 {
+			res.WriteHeader(http.StatusOK)
+			_, err := fmt.Fprintf(res, "<div>No metrics available</div>\n</body></html>")
+			if err != nil {
+				logger.Sugar.Errorf("Error writing no metrics message to response: %v", err)
+				http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+			}
+			return
+		}
+
 		for _, metric := range allMetrics {
 			valueStr, err := metric.GetValueAsString()
 			if err != nil {
-				fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.ID, err)
+				_, err := fmt.Fprintf(res, "<div>Error getting value for metric %s: %s</div>\n", metric.ID, err)
+				if err != nil {
+					logger.Sugar.Errorf("Error writing metric error to response: %v", err)
+					http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
 			} else {
-				fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.ID, valueStr)
+				_, err := fmt.Fprintf(res, "<div>%s: %s</div>\n", metric.ID, valueStr)
+				if err != nil {
+					logger.Sugar.Errorf("Error writing metric to response: %v", err)
+					http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
 			}
 		}
-		fmt.Fprintf(res, "</body></html>\n")
+
+		_, err = fmt.Fprintf(res, "</body></html>\n")
+		if err != nil {
+			logger.Sugar.Errorf("Error finalizing response: %v", err)
+			http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -114,7 +146,12 @@ func GetMetricsJSON(storage Storage) http.HandlerFunc {
 		}
 
 		res.Header().Set("Content-Type", "application/json")
-		res.Write(jsonResponse)
+		_, err = res.Write(jsonResponse)
+		if err != nil {
+			logger.Sugar.Errorf("Error writing JSON response: %v", err)
+			http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -138,9 +175,14 @@ func GetMetricsPlain(storage Storage) http.HandlerFunc {
 		}
 		valueStr, err := metric.GetValueAsString()
 		if err != nil {
+			logger.Sugar.Errorf("error getting a string value: %v", err)
 			return
 		}
-		fmt.Fprintln(res, valueStr)
+		_, err = fmt.Fprintln(res, valueStr)
+		if err != nil {
+			logger.Sugar.Errorf("(error writing value to response: %v", err)
+			return
+		}
 	}
 }
 
@@ -211,7 +253,12 @@ func UpdateMetricsJSON(storage Storage) http.HandlerFunc {
 		}
 
 		res.Header().Set("Content-Type", "application/json")
-		res.Write(jsonResponse)
+		_, err = res.Write(jsonResponse)
+		if err != nil {
+			logger.Sugar.Errorf("Error writing JSON response: %v", err)
+			http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 

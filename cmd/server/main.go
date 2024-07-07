@@ -17,8 +17,11 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/handlers"
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
@@ -44,7 +47,12 @@ func MetricsRouter(s storage.Storage) chi.Router {
 
 func main() {
 	logger.InitLogger()
-	defer logger.Sugar.Sync()
+	defer func(Sugar *zap.SugaredLogger) {
+		err := Sugar.Sync()
+		if err != nil {
+			fmt.Printf("error syncin logger: %v", err)
+		}
+	}(logger.Sugar)
 	if err := Execute(); err != nil {
 		logger.Sugar.Fatalf("error starting server: %v", err)
 	}

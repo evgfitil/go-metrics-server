@@ -138,8 +138,12 @@ func (f *FileStorage) AsyncSave() {
 func (f *FileStorage) Close() error {
 	if f.file != nil {
 		if err := f.SaveMetrics(context.TODO()); err != nil {
-			logger.Sugar.Errorf("error when writing when closing: %v", err)
-			f.file.Close()
+			logger.Sugar.Errorf("error writing when closing: %v", err)
+			err = f.file.Close()
+			if err != nil {
+				logger.Sugar.Errorf("error with closing file: %v", err)
+				return err
+			}
 			return err
 		}
 		err := f.file.Close()

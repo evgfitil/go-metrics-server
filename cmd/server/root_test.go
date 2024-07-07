@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/spf13/cobra"
 
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
@@ -23,13 +25,23 @@ func getFreePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
+	defer func(l *net.TCPListener) {
+		err = l.Close()
+		if err != nil {
+			logger.Sugar.Errorf("error closing the TCP listener: %v", err)
+		}
+	}(l)
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 func TestExecute(t *testing.T) {
 	logger.InitLogger()
-	defer logger.Sugar.Sync()
+	defer func(Sugar *zap.SugaredLogger) {
+		err := Sugar.Sync()
+		if err != nil {
+			fmt.Printf("erorr syncing the logger")
+		}
+	}(logger.Sugar)
 
 	tests := []struct {
 		name    string
@@ -47,7 +59,11 @@ func TestExecute(t *testing.T) {
 
 			go func() {
 				<-ctx.Done()
-				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				err := syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				if err != nil {
+					logger.Sugar.Errorf("error sending SigINT signal: %v", err)
+					return
+				}
 			}()
 
 			if err := Execute(); (err != nil) != tt.wantErr {
@@ -59,7 +75,12 @@ func TestExecute(t *testing.T) {
 
 func Test_runServer(t *testing.T) {
 	logger.InitLogger()
-	defer logger.Sugar.Sync()
+	defer func(Sugar *zap.SugaredLogger) {
+		err := Sugar.Sync()
+		if err != nil {
+			fmt.Printf("error syncing the logger: %v", err)
+		}
+	}(logger.Sugar)
 
 	type args struct {
 		cmd  *cobra.Command
@@ -95,7 +116,11 @@ func Test_runServer(t *testing.T) {
 
 			go func() {
 				<-ctx.Done()
-				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				err = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				if err != nil {
+					logger.Sugar.Errorf("error sending SigINT signal: %v", err)
+					return
+				}
 			}()
 
 			runServer(tt.args.cmd, tt.args.args)

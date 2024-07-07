@@ -1,3 +1,5 @@
+// Package agentcore provides core functionalities for the agent to collect metrics
+// from the system and send them to the server.
 package agentcore
 
 import (
