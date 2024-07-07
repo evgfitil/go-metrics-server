@@ -118,13 +118,12 @@ func TestGetMetricsJsonHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			resp, err := ts.Client().Do(req)
-			defer func(Body io.ReadCloser) {
-				err := Body.Close()
-				if err != nil {
+			require.NoError(t, err)
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
 					logger.Sugar.Errorf("error closing response body: %v", err)
 				}
-			}(resp.Body)
-			require.NoError(t, err)
+			}()
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 			if tt.want.statusCode == http.StatusOK {
@@ -229,13 +228,11 @@ func TestUpdateMetricsJsonHandler(t *testing.T) {
 
 			resp, err := ts.Client().Do(req)
 			require.NoError(t, err)
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
 					logger.Sugar.Errorf("error closing response body: %v", err)
 				}
-			}(resp.Body)
-
+			}()
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, tt.want.statusCode, resp.StatusCode)
 			if tt.want.statusCode == http.StatusOK {
