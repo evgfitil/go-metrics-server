@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/caarlos0/env/v10"
+
+	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -55,7 +57,11 @@ func TestConfigFromEnv(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				err := os.Setenv(key, value)
+				if err != nil {
+					logger.Sugar.Errorf("error settings up environment variables")
+					return
+				}
 			}
 
 			cfg := NewConfig()
@@ -68,7 +74,11 @@ func TestConfigFromEnv(t *testing.T) {
 			}
 
 			for key := range tt.envVars {
-				os.Unsetenv(key)
+				err := os.Unsetenv(key)
+				if err != nil {
+					logger.Sugar.Errorf("error unset environment variables")
+					return
+				}
 			}
 		})
 	}
