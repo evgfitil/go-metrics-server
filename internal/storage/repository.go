@@ -1,3 +1,7 @@
+// Package storage provides various implementations of the Storage interface for
+// storing metrics collected by the agent. The available implementations include
+// in-memory storage, database storage, and file storage, allowing flexibility
+// depending on the use case and requirements.
 package storage
 
 import (

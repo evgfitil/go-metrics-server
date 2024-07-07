@@ -1,3 +1,6 @@
+// Package handlers provides HTTP handlers for the server to receive and process
+// metrics from agents. It includes functionalities to parse incoming requests,
+// store metrics, and return responses.
 package handlers
 
 import (

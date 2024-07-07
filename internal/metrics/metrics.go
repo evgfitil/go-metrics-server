@@ -1,3 +1,6 @@
+// Package metrics defines the structure and methods for handling metrics collected
+// by the agent and processed by the server. It provides the necessary data models
+// and functions to work with metrics.
 package metrics
 
 import "fmt"

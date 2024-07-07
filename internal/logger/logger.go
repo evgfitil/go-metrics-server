@@ -1,3 +1,6 @@
+// Package logger provides logging functionalities for the agent and server.
+// It includes functionalities to log messages with different severity levels and
+// to format and output logs.
 package logger
 
 import (
