@@ -28,6 +28,12 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/storage"
 )
 
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
 func MetricsRouter(s storage.Storage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Compress(5))
@@ -53,6 +59,11 @@ func main() {
 			fmt.Printf("error syncin logger: %v", err)
 		}
 	}(logger.Sugar)
+
+	logger.Sugar.Infof("Build version: %s\n", buildVersion)
+	logger.Sugar.Infof("Build date: %s\n", buildDate)
+	logger.Sugar.Infoln("Build commit: %s\n", buildCommit)
+
 	if err := Execute(); err != nil {
 		logger.Sugar.Fatalf("error starting server: %v", err)
 	}
