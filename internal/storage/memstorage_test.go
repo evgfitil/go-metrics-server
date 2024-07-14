@@ -407,3 +407,54 @@ func TestMemStorage_UpdateMetricsConcurrent(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, *storedMetric.Delta, *int64Ptr(100))
 }
+
+func TestMemStorage_Close(t *testing.T) {
+	tests := []struct {
+		name string
+		m    *MemStorage
+		want error
+	}{
+		{name: "Close MemStorage", m: &MemStorage{}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.Close(); got != tt.want {
+				t.Errorf("Close() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemStorage_SaveMetrics(t *testing.T) {
+	tests := []struct {
+		name string
+		m    *MemStorage
+		want error
+	}{
+		{name: "SaveMetrics MemStorage", m: &MemStorage{}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.SaveMetrics(context.Background()); got != tt.want {
+				t.Errorf("SaveMetrics() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemStorage_Ping(t *testing.T) {
+	tests := []struct {
+		name string
+		m    *MemStorage
+		want error
+	}{
+		{name: "Ping MemStorage", m: &MemStorage{}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.Ping(context.Background()); got != tt.want {
+				t.Errorf("Ping() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
