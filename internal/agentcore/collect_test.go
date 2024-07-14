@@ -1,14 +1,11 @@
 package agentcore
 
 import (
-	"math/rand"
 	"runtime"
 	"testing"
-	"time"
 )
 
 func TestCollectMetrics(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
 
 	type args struct {
 		m *runtime.MemStats
