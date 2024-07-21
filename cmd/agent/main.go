@@ -14,6 +14,12 @@ import (
 	"github.com/evgfitil/go-metrics-server.git/internal/logger"
 )
 
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
 var wg sync.WaitGroup
 
 func main() {
@@ -24,6 +30,10 @@ func main() {
 			fmt.Printf("error syncin logger: %v", err)
 		}
 	}(logger.Sugar)
+
+	logger.Sugar.Infof("Build version: %s\n", buildVersion)
+	logger.Sugar.Infof("Build date: %s\n", buildDate)
+	logger.Sugar.Infoln("Build commit: %s\n", buildCommit)
 
 	if err := Execute(); err != nil {
 		logger.Sugar.Fatalf("error starting agent: %v", err)

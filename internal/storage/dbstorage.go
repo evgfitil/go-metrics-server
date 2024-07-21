@@ -23,7 +23,9 @@ const (
 	migrationPath = "db/migrations"
 )
 
-var wg sync.WaitGroup
+var (
+	wg sync.WaitGroup
+)
 
 type metricsCache struct {
 	cache map[string]*metrics.Metrics
