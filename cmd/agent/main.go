@@ -27,7 +27,7 @@ func main() {
 	defer func(Sugar *zap.SugaredLogger) {
 		err := Sugar.Sync()
 		if err != nil {
-			fmt.Printf("error syncin logger: %v", err)
+			fmt.Printf("error syncing logger: %v", err)
 		}
 	}(logger.Sugar)
 
